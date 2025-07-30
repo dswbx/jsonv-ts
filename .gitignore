@@ -6,6 +6,8 @@ out
 dist
 *.tgz
 .history
+.debug
+**/*/.debug
 
 # code coverage
 coverage

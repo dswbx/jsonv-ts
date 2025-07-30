@@ -4,6 +4,7 @@ export {
    type StrictOptions,
    booleanSchema,
    type TSchemaTemplateOptions,
+   type Node,
 } from "./schema/schema";
 export {
    any,
@@ -27,6 +28,7 @@ export {
    object,
    ObjectSchema,
    type IObjectOptions,
+   type TProperties,
    strictObject,
    partialObject,
    type ObjectStatic,
@@ -48,6 +50,7 @@ export type {
 } from "./validation/validate";
 export { error, type ErrorDetail, valid, makeOpts } from "./utils/details";
 export { type CoercionOptions } from "./validation/coerce";
+export { type ParseOptions, parse, ParseError } from "./validation/parse";
 
 import { object, strictObject, partialObject } from "./object/object";
 import { string } from "./string/string";
