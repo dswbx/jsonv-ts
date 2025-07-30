@@ -1,6 +1,7 @@
 [![npm version](https://img.shields.io/npm/v/jsonv-ts.svg)](https://npmjs.org/package/jsonv-ts)
 ![gzipped size of jsonv-ts](https://img.badgesize.io/https://unpkg.com/jsonv-ts@latest/dist/lib/index.js?compression=gzip&label=jsonv-ts)
 ![gzipped size of jsonv-ts/hono](https://img.badgesize.io/https://unpkg.com/jsonv-ts@latest/dist/hono/index.js?compression=gzip&label=jsonv-ts/hono)
+![gzipped size of jsonv-ts/mcp](https://img.badgesize.io/https://unpkg.com/jsonv-ts@latest/dist/mcp/index.js?compression=gzip&label=jsonv-ts/mcp)
 
 # jsonv-ts: JSON Schema Builder and Validator for TypeScript
 
@@ -40,6 +41,7 @@
 -  [License](#license)
 -  [Acknowledgements](#acknowledgements)
 
+<!-- /TOC -->
 <!-- /TOC -->
 
 A simple, lightweight (~6kb gzipped) and dependency-free TypeScript library for defining and validating JSON schemas with static type inference. The schemas composed can be used with any JSON schema validator, it strips all metadata when being JSON stringified. It has an integrated validator that can be used to validate instances against the latest JSON schema draft (2020-12).
