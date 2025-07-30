@@ -60,6 +60,7 @@ describe("resource", () => {
          expect(json).toEqual({
             uriTemplate: uri,
             name: "users",
+            title: undefined,
             mimeType: "text/plain",
             description: undefined,
          });
@@ -77,6 +78,7 @@ describe("resource", () => {
          expect(json).toEqual({
             uri: uri,
             name: "users",
+            title: undefined,
             mimeType: "text/plain",
             description: undefined,
          });
