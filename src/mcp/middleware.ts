@@ -8,14 +8,18 @@ import {
 import type { Tool } from "./tool";
 import type { Resource } from "./resource";
 
-export interface McpServerInit {
-   tools?: Tool<any, any, any | never>[];
-   resources?: Resource<any, any, any | never>[];
-   context?: object;
-}
+export type McpServerInit =
+   | {
+        tools?: Tool<any, any, any | never>[];
+        resources?: Resource<any, any, any, any | never>[];
+        context?: object;
+        serverInfo?: McpServerInfo;
+     }
+   | {
+        server: McpServer;
+     };
 
 export interface McpOptionsBase {
-   serverInfo?: McpServerInfo;
    sessionsEnabled?: boolean;
    debug?: {
       enableHistoryEndpoint?: boolean;
@@ -27,9 +31,10 @@ export interface McpOptionsBase {
    };
 }
 
-export interface McpOptionsStatic extends McpOptionsBase, McpServerInit {
-   setup?: never;
-}
+export type McpOptionsStatic = McpOptionsBase &
+   McpServerInit & {
+      setup?: never;
+   };
 
 export interface McpOptionsSetup extends McpOptionsBase {
    setup: (c: Context) => Promise<McpServerInit>;
@@ -37,7 +42,7 @@ export interface McpOptionsSetup extends McpOptionsBase {
 
 export type McpOptions = McpOptionsStatic | McpOptionsSetup;
 
-export const mcp = (opts?: McpOptions): MiddlewareHandler => {
+export const mcp = (opts: McpOptions): MiddlewareHandler => {
    const mcpPath = opts?.endpoint?.path ?? "/sse";
    const sessions = new Map<string, McpServer>();
 
@@ -77,12 +82,16 @@ export const mcp = (opts?: McpOptions): MiddlewareHandler => {
                   ? await opts?.setup(c)
                   : opts;
 
-            server = mcpServer({
-               serverInfo: opts?.serverInfo,
-               context: ctx?.context,
-               tools: ctx?.tools,
-               resources: ctx?.resources,
-            });
+            if ("server" in ctx) {
+               server = ctx.server.clone();
+            } else {
+               server = mcpServer({
+                  serverInfo: ctx?.serverInfo,
+                  context: ctx?.context,
+                  tools: ctx?.tools,
+                  resources: ctx?.resources,
+               });
+            }
 
             if (opts?.debug?.logLevel) {
                server.setLogLevel(opts.debug.logLevel);

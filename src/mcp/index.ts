@@ -12,6 +12,7 @@ export {
    type ResourceOptions,
    type ResourceResponse,
    type TResourceUri,
+   type ResourceHandlerCtx,
 } from "./resource";
 export {
    mcp,
@@ -27,3 +28,4 @@ export {
    type TRpcRequest,
    type TRpcResponse,
 } from "./rpc";
+export { McpClient, type McpClientConfig } from "./client";

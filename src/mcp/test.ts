@@ -81,7 +81,7 @@ const dynamicResource = new Resource(
 const dynamicResource2 = resource({
    name: "dynamic2",
    uri: "users://{username}/profile",
-   handler: async ({ username }) => {
+   handler: async ({ username }, ctx) => {
       await new Promise((resolve) => setTimeout(resolve, 1000));
       return {
          text: `hello ${username}`,
@@ -91,6 +91,10 @@ const dynamicResource2 = resource({
 
 const app = new Hono().use(
    mcp({
+      serverInfo: {
+         name: "mcp-test",
+         version: "0.0.1",
+      },
       context: {
          random: "bla bla",
       },

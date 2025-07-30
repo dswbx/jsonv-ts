@@ -38,7 +38,10 @@ export class ResourcesReadMessage extends RpcMessage {
       uri: s.string(),
    });
 
-   override async respond(message: TRpcRequest<typeof this.params>) {
+   override async respond(
+      message: TRpcRequest<typeof this.params>,
+      request: Request
+   ) {
       const uri = message.params.uri;
       const resource = this.server.resources.find((r) => r.matches(uri as any));
       if (!resource) {
@@ -49,7 +52,8 @@ export class ResourcesReadMessage extends RpcMessage {
          contents: [
             await resource.toJSONContent(
                this.server.context,
-               message.params.uri as any
+               message.params.uri as any,
+               request
             ),
          ],
       });

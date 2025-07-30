@@ -27,6 +27,9 @@
 -  [Hono Integration](#hono-integration)
    -  [Validator Middleware](#validator-middleware)
    -  [OpenAPI generation](#openapi-generation)
+-  [MCP](#mcp)
+   -  [Hono MCP Middleware](#hono-mcp-middleware)
+   -  [MCP Client](#mcp-client)
 -  [Validation](#validation)
    -  [Integrated Validator](#integrated-validator)
       -  [Using Standard Schema](#using-standard-schema)
@@ -536,6 +539,140 @@ import { swaggerUI } from "@hono/swagger-ui";
 
 const app = /* ... your hono app */;
 app.get("/swagger", swaggerUI({ url: "/openapi.json" }));
+```
+
+## MCP
+
+This package also includes a Web-spec compliant MCP server and client implementation. Not all features are supported yet, see [STATUS.md](./src/mcp/STATUS.md) for the current status.
+
+Here is a simple MCP server example:
+
+```ts
+import { McpServer } from "jsonv-ts/mcp";
+import { s } from "jsonv-ts";
+
+const server = new McpServer({
+   name: "demo-server",
+   version: "1.0.0",
+});
+
+server.tool({
+   name: "add",
+   description: "Add two numbers",
+   schema: s.object({
+      a: s.number(),
+      b: s.number(),
+   }),
+   handler: async ({ a, b }, c) => {
+      return c.text(String(a + b));
+   },
+});
+
+server.resource({
+   name: "greeting",
+   uri: "greeting://{name}",
+   title: "Greeting Resource",
+   description: "Dynamic greeting resource",
+   handler: async ({ name }, c) => {
+      return c.text(`Hello, ${name}!`);
+   },
+});
+
+// make a request to the server
+const request = new Request("http://localhost", {
+   method: "POST",
+   body: JSON.stringify({
+      jsonrpc: "2.0",
+      method: "resources/read",
+      params: {
+         uri: "greeting://John",
+      },
+   }),
+});
+
+const response = await server.handle(request);
+const data = await response.json();
+console.log(data);
+// {
+//   jsonrpc: "2.0",
+//   result: {
+//     contents: [
+//       {
+//         name: "greeting",
+//         title: "Greeting Resource",
+//         description: "Dynamic greeting resource",
+//         mimeType: "text/plain",
+//         uri: "greeting://John",
+//         text: "Hello, John!",
+//       }
+//     ],
+//   },
+// }
+```
+
+### Hono MCP Middleware
+
+You can use the MCP server with any Web-spec compliant web framework. If you choose to use it with Hono, there is a built-in middleware that can be used to handle MCP requests.
+
+```ts
+import { Hono } from "hono";
+import { mcp } from "jsonv-ts/mcp/hono";
+
+// use the `server` from the example above
+const app = new Hono().use(mcp({ server }));
+```
+
+Alternatively, you can use the middleware to specify MCP server options:
+
+```ts
+import { Hono } from "hono";
+import { mcp, tool, resource } from "jsonv-ts/mcp";
+
+const add = tool({
+   name: "add",
+   schema: s.object({ a: s.number(), b: s.number() }),
+   handler: async ({ a, b }, ctx) => {
+      return ctx.text(String(a + b));
+   },
+});
+const greeting = resource({
+   name: "greeting",
+   uri: "greeting://{name}",
+   handler: async ({ name }, ctx) => {
+      return ctx.text(`Hello, ${name}!`);
+   },
+});
+
+const app = new Hono().use(
+   mcp({
+      // optionally specify the server info
+      serverInfo: { name: "my-server", version: "1.0.0" },
+      // register tools and resources
+      tools: [add],
+      resources: [greeting],
+      // optionally enable sessions
+      sessionsEnabled: true,
+      // optionally specify the path to the MCP endpoint
+      endpoint: {
+         path: "/sse",
+      },
+   })
+);
+```
+
+### MCP Client
+
+You can use the MCP client to interact with MCP servers.
+
+```ts
+import { McpClient } from "jsonv-ts/mcp";
+
+const client = new McpClient({ url: "http://localhost/sse" });
+
+const result = await client.callTool({
+   name: "add",
+   arguments: { a: 1, b: 2 },
+});
 ```
 
 ## Validation

@@ -26,7 +26,17 @@ export function matchPath(template: string, actual: string): boolean {
 
 export type ResourceOptions = {
    mimeType?: string;
+   title?: string;
    description?: string;
+};
+
+export type ResourceHandlerCtx<Context extends object = object> = {
+   text: (text: string) => ResourceResponse;
+   json: (json: object) => ResourceResponse;
+   binary: (binary: Uint8Array) => ResourceResponse;
+   context: Context;
+   uri: TResourceUri;
+   request: Request;
 };
 
 export type ResourceResponse = {
@@ -41,6 +51,7 @@ export type ResourceResponse = {
 export class Resource<
    Name extends string,
    Uri extends TResourceUri,
+   Context extends object = {},
    Params = Uri extends TResourceUri ? ExtractParams<Uri> : never
 > {
    constructor(
@@ -48,7 +59,7 @@ export class Resource<
       public readonly uri: Uri,
       public readonly handler: (
          params: Params,
-         context: object
+         ctx: ResourceHandlerCtx<Context>
       ) => Promise<ResourceResponse>,
       public readonly options: ResourceOptions = {
          mimeType: "text/plain",
@@ -63,17 +74,44 @@ export class Resource<
       return matchPath(this.uri, uri);
    }
 
-   async call(uri: TResourceUri, context: object): Promise<ResourceResponse> {
+   async call(
+      uri: TResourceUri,
+      context: Context,
+      request: Request
+   ): Promise<ResourceResponse> {
       const params = extractParamValues(this.uri, uri) as Params;
-      return await this.handler(params, context);
+      return await this.handler(params, {
+         context,
+         uri,
+         request,
+         text: (text: string) => ({
+            mimeType: "text/plain",
+            text: String(text),
+         }),
+         json: (json: object) => ({
+            mimeType: "application/json",
+            text: JSON.stringify(json),
+         }),
+         binary: (binary: File | Uint8Array) => ({
+            mimeType:
+               binary instanceof File
+                  ? binary.type
+                  : "application/octet-stream",
+            blob: binary instanceof File ? binary : (new Blob([binary]) as any),
+         }),
+      });
    }
 
-   async toJSONContent(context: object = {}, uri: TResourceUri = this.uri) {
+   async toJSONContent(
+      context: Context,
+      uri: TResourceUri = this.uri,
+      request: Request = new Request(uri)
+   ) {
       const { uriTemplate, ...rest } = this.toJSON();
       return {
          ...rest,
          uri,
-         ...(await this.call(uri, context)),
+         ...(await this.call(uri, context, request)),
       };
    }
 
@@ -81,21 +119,33 @@ export class Resource<
       return {
          [this.isDynamic() ? "uriTemplate" : "uri"]: this.uri,
          name: this.name,
-         mimeType: this.options.mimeType,
+         title: this.options.title,
          description: this.options.description,
+         mimeType: this.options.mimeType,
       };
    }
 }
 
+export type ResourceFactoryProps<
+   Name extends string = string,
+   Uri extends TResourceUri = TResourceUri,
+   Context extends object = {},
+   Params = Uri extends TResourceUri ? ExtractParams<Uri> : never
+> = {
+   name: Name;
+   uri: Uri;
+   handler: (
+      params: Params,
+      ctx: ResourceHandlerCtx<Context>
+   ) => Promise<ResourceResponse>;
+} & ResourceOptions;
+
 export function resource<
    Name extends string = string,
    Uri extends TResourceUri = TResourceUri,
+   Context extends object = {},
    Params = Uri extends TResourceUri ? ExtractParams<Uri> : never
->(opts: {
-   name: Name;
-   uri: Uri;
-   handler: (params: Params, context: object) => Promise<ResourceResponse>;
-}) {
+>(opts: ResourceFactoryProps<Name, Uri, Context, Params>) {
    const { name, uri, handler, ...options } = opts;
    return new Resource(name, uri, handler, options);
 }

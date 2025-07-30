@@ -3,7 +3,12 @@ import type { RpcMessage, TRpcId, TRpcRawRequest, TRpcResponse } from "./rpc";
 import * as s from "jsonv-ts";
 import { tool, type Tool, type ToolFactoryProps } from "./tool";
 import { McpError } from "./error";
-import { resource, type Resource } from "./resource";
+import {
+   resource,
+   type Resource,
+   type ResourceFactoryProps,
+   type TResourceUri,
+} from "./resource";
 
 const serverInfoSchema = s.object({
    name: s.string(),
@@ -60,6 +65,15 @@ export class McpServer<
       );
    }
 
+   clone() {
+      return new McpServer(
+         this.serverInfo,
+         this.context,
+         this.tools,
+         this.resources
+      );
+   }
+
    setLogLevel(level: LogLevel) {
       this.console.info("set log level", level);
       this.logLevel = level;
@@ -76,12 +90,14 @@ export class McpServer<
       return this;
    }
 
-   registerResource(resource: Resource<any, any>) {
+   registerResource(resource: Resource<any, any, any>) {
       this.resources.push(resource);
    }
 
-   resource(...args: Parameters<typeof resource>) {
-      this.registerResource(resource(...args));
+   resource<Uri extends TResourceUri>(
+      opts: ResourceFactoryProps<string, Uri, ServerContext>
+   ) {
+      this.registerResource(resource(opts as any));
       return this;
    }
 

@@ -1,4 +1,4 @@
-import type { TAnySchema, TSchema } from "../schema";
+import type { IAnySchema, Schema } from "../schema";
 import { fromSchema } from "../schema/from-schema";
 import type { Static } from "../static";
 import type { StaticCoerced } from "../static";
@@ -20,19 +20,19 @@ export type ParseOptions = {
    clone?: boolean;
 };
 
-const cloneSchema = <S extends TSchema>(schema: S): S => {
+const cloneSchema = <S extends Schema>(schema: S): S => {
    const json = schema.toJSON();
    return fromSchema(json) as S;
 };
 
 export function parse<
-   S extends TAnySchema,
+   S extends IAnySchema,
    Opts extends ParseOptions = ParseOptions,
    Out = Opts extends { coerce: true } ? StaticCoerced<S> : Static<S>
 >(_schema: S, v: unknown, opts: Opts = {} as Opts): Out {
    const schema = (
       opts.clone ? cloneSchema(_schema as any) : _schema
-   ) as TSchema;
+   ) as Schema;
    const value = opts.coerse !== false ? schema.coerce(v) : v;
    const result = schema.validate(value, {
       shortCircuit: true,
