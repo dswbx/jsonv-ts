@@ -13,10 +13,15 @@ const test = new Tool(
       }
       return c.text(`Hello, ${params.name}! Age: ${params.age ?? "unknown"}`);
    },
-   s.object({
-      name: s.string(),
-      age: s.number().optional(),
-   })
+   s.object(
+      {
+         name: s.string(),
+         age: s.number().optional(),
+      },
+      {
+         title: "...",
+      }
+   )
 );
 
 const test2 = tool({
@@ -96,6 +101,9 @@ const app = new Hono().use(
          dynamicResource,
          dynamicResource2,
       ],
+      debug: {
+         logLevel: "debug",
+      },
    })
 );
 
@@ -118,12 +126,22 @@ const srv = new McpServer(
 });
 
 app.all("/mcp_test", async (c) => {
-   const server = new McpServer({
-      name: "mcp-test",
-      version: "0.0.1",
-   });
+   const server = new McpServer(
+      {
+         name: "mcp-test",
+         version: "0.0.1",
+      },
+      {
+         foo: "bar1",
+      }
+   );
    server.registerTool(test);
-   return await server.handle(c);
+   server.registerTool(test2);
+   server.registerTool(context);
+   return await server.handle(c.req.raw);
 });
 
-export default app;
+export default {
+   fetch: app.fetch,
+   port: 3001,
+};

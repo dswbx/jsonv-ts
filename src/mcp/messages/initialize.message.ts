@@ -22,6 +22,7 @@ export class InitializeMessage extends RpcMessage {
          capabilities: {
             tools: this.server.tools.length > 0 ? {} : undefined,
             resources: this.server.resources.length > 0 ? {} : undefined,
+            logging: {},
          },
          serverInfo: this.server.serverInfo,
       });
@@ -32,6 +33,6 @@ export class InitializedNotificationMessage extends RpcNotification {
    method = "notifications/initialized";
 
    override async handle(message: TRpcRequest) {
-      console.log("initialized", message);
+      //console.log("initialized", message);
    }
 }

@@ -4,6 +4,7 @@ export {
    type StrictOptions,
    booleanSchema,
    type TSchemaTemplateOptions,
+   type Node,
 } from "./schema/schema";
 export {
    any,
@@ -27,6 +28,7 @@ export {
    object,
    ObjectSchema,
    type IObjectOptions,
+   type TProperties,
    strictObject,
    partialObject,
    type ObjectStatic,

@@ -1,5 +1,10 @@
 import type { Context, MiddlewareHandler, Next } from "hono";
-import { McpServer, type McpServerInfo } from "./server";
+import {
+   mcpServer,
+   McpServer,
+   type LogLevel,
+   type McpServerInfo,
+} from "./server";
 import type { Tool } from "./tool";
 import type { Resource } from "./resource";
 
@@ -14,6 +19,7 @@ export interface McpOptionsBase {
    sessionsEnabled?: boolean;
    debug?: {
       enableHistoryEndpoint?: boolean;
+      logLevel?: LogLevel;
    };
    endpoint?: {
       transport?: "streamableHttp";
@@ -31,9 +37,8 @@ export interface McpOptionsSetup extends McpOptionsBase {
 
 export type McpOptions = McpOptionsStatic | McpOptionsSetup;
 
-export const mcp = (opts: McpOptions): MiddlewareHandler => {
-   let server: McpServer | undefined;
-   const mcpPath = opts.endpoint?.path ?? "/mcp";
+export const mcp = (opts?: McpOptions): MiddlewareHandler => {
+   const mcpPath = opts?.endpoint?.path ?? "/sse";
    const sessions = new Map<string, McpServer>();
 
    return async (c: Context, next: Next) => {
@@ -43,7 +48,7 @@ export const mcp = (opts: McpOptions): MiddlewareHandler => {
       if (mcpPath !== path) {
          if (
             sessionId &&
-            opts.debug?.enableHistoryEndpoint &&
+            opts?.debug?.enableHistoryEndpoint &&
             path === `${mcpPath}/__history`
          ) {
             const server = sessions.get(sessionId);
@@ -51,42 +56,52 @@ export const mcp = (opts: McpOptions): MiddlewareHandler => {
                return c.json(Array.from(server.history.values()), 200);
             }
          }
-         console.log("not mcp path", path, mcpPath);
+         //console.log("not mcp path", path, mcpPath);
          await next();
       } else {
-         if (opts.sessionsEnabled) {
+         let server: McpServer | undefined;
+
+         if (opts?.sessionsEnabled) {
             if (sessionId) {
-               console.log("using existing session", sessionId);
+               //console.log("using existing session", sessionId);
                server = sessions.get(sessionId);
             } else {
                sessionId = crypto.randomUUID();
-               console.log("creating new session", sessionId);
+               //console.log("creating new session", sessionId);
             }
          }
 
          if (!server) {
-            console.log("creating server");
             const ctx =
-               "setup" in opts && opts.setup ? await opts.setup(c) : opts;
-            server = new McpServer(opts.serverInfo, ctx?.context ?? {});
+               opts && "setup" in opts && opts?.setup
+                  ? await opts?.setup(c)
+                  : opts;
 
-            for (const tool of ctx.tools ?? []) {
-               server.registerTool(tool);
+            server = mcpServer({
+               serverInfo: opts?.serverInfo,
+               context: ctx?.context,
+               tools: ctx?.tools,
+               resources: ctx?.resources,
+            });
+
+            if (opts?.debug?.logLevel) {
+               server.setLogLevel(opts.debug.logLevel);
             }
 
-            for (const resource of ctx.resources ?? []) {
-               server.registerResource(resource);
-            }
-
-            if (opts.sessionsEnabled) {
+            if (opts?.sessionsEnabled) {
                sessions.set(sessionId!, server);
             }
          }
 
-         if (opts.sessionsEnabled) {
-            c.header("Mcp-Session-Id", sessionId!);
+         const res = await server.handle(c.req.raw);
+         const headers = new Headers(res.headers);
+         if (opts?.sessionsEnabled) {
+            headers.set("Mcp-Session-Id", sessionId!);
          }
-         return await server.handle(c);
+         return new Response(res.body, {
+            status: res.status,
+            headers,
+         });
       }
    };
 };

@@ -39,6 +39,7 @@ export type ToolHandlerCtx<Context extends object = object> = {
    text: (text: string) => any;
    json: (json: object) => any;
    context: Context;
+   request: Request;
 };
 
 export type ToolResponse = {
@@ -47,8 +48,8 @@ export type ToolResponse = {
 
 export class Tool<
    Name extends string = string,
-   Schema extends s.TSchema | undefined = undefined,
-   Params = Schema extends s.TSchema ? s.Static<Schema> : object
+   Schema extends s.Schema | undefined = undefined,
+   Params = Schema extends s.Schema ? s.Static<Schema> : object
 > {
    constructor(
       readonly name: Name,
@@ -67,7 +68,11 @@ export class Tool<
       }
    }
 
-   async call(params: Params, context: object): Promise<ToolResponse> {
+   async call(
+      params: Params,
+      context: object,
+      request: Request
+   ): Promise<ToolResponse> {
       if (this.schema) {
          const result = this.schema.validate(params);
          if (!result.valid) {
@@ -80,6 +85,7 @@ export class Tool<
 
       return await this.handler(params, {
          context,
+         request,
          text: (text) => ({
             type: "text",
             text,
@@ -96,7 +102,7 @@ export class Tool<
       return {
          name: this.name,
          description,
-         inputSchema: this.schema?.toJSON() ?? s.object({}),
+         inputSchema: this.schema?.toJSON() ?? { type: "object" },
          annotations:
             Object.keys(annotations).length > 0 ? annotations : undefined,
       };
@@ -105,9 +111,9 @@ export class Tool<
 
 export type ToolFactoryProps<
    Name extends string = string,
-   Schema extends s.TSchema | undefined = undefined,
+   Schema extends s.Schema | undefined = undefined,
    Context extends object = {},
-   Params = Schema extends s.TSchema ? s.Static<Schema> : object
+   Params = Schema extends s.Schema ? s.Static<Schema> : object
 > = {
    name: Name;
    handler: (
@@ -120,7 +126,7 @@ export type ToolFactoryProps<
 
 export function tool<
    Name extends string = string,
-   Schema extends s.TSchema | undefined = undefined
+   Schema extends s.Schema | undefined = undefined
 >(opts: ToolFactoryProps<Name, Schema, object>) {
    const { name, handler, schema, description, ...annotations } = opts;
    return new Tool(name, handler, schema ?? undefined, {

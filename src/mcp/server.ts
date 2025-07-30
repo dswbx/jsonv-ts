@@ -1,16 +1,9 @@
-import type { Context as HonoContext } from "hono";
 import * as messages from "./messages";
-import type {
-   RpcMessage,
-   TRpcId,
-   TRpcRawRequest,
-   TRpcRequest,
-   TRpcResponse,
-} from "./rpc";
+import type { RpcMessage, TRpcId, TRpcRawRequest, TRpcResponse } from "./rpc";
 import * as s from "jsonv-ts";
 import { tool, type Tool, type ToolFactoryProps } from "./tool";
 import { McpError } from "./error";
-import { resource, type TResourceUri, type Resource } from "./resource";
+import { resource, type Resource } from "./resource";
 
 const serverInfoSchema = s.object({
    name: s.string(),
@@ -18,10 +11,33 @@ const serverInfoSchema = s.object({
 });
 export type McpServerInfo = s.Static<typeof serverInfoSchema>;
 
-export class McpServer<ServerContext extends object = {}> {
-   protected readonly messages: RpcMessage<string, s.TSchema>[] = [];
-   readonly version = "2025-03-26";
+export const logLevels = {
+   emergency: "error",
+   alert: "error",
+   critical: "error",
+   error: "error",
+   warning: "warn",
+   notice: "log",
+   info: "info",
+   debug: "debug",
+};
+export type LogLevel = keyof typeof logLevels;
+export const logLevelNames = Object.keys(logLevels) as LogLevel[];
+export const protocolVersion = "2025-06-18";
+
+export class McpServer<
+   ServerContext extends object = {},
+   Tools extends Tool<any, any, any | never>[] = Tool<any, any, any | never>[],
+   Resources extends Resource<any, any, any | never>[] = Resource<
+      any,
+      any,
+      any | never
+   >[]
+> {
+   protected readonly messages: RpcMessage<string, s.Schema>[] = [];
+   readonly version = protocolVersion;
    protected currentId: TRpcId | undefined;
+   protected logLevel: LogLevel = "warning";
    readonly history: Map<
       TRpcId,
       {
@@ -29,26 +45,31 @@ export class McpServer<ServerContext extends object = {}> {
          response?: TRpcResponse;
       }
    > = new Map();
-   tools: Tool<string, s.TSchema>[] = [];
-   resources: Resource<string, TResourceUri>[] = [];
 
    constructor(
       readonly serverInfo: s.Static<typeof serverInfoSchema> = {
          name: "mcp-server",
          version: "0.0.0",
       },
-      readonly context: ServerContext = {} as ServerContext
+      readonly context: ServerContext = {} as ServerContext,
+      public tools: Tools = [] as unknown as Tools,
+      public resources: Resources = [] as unknown as Resources
    ) {
       this.messages = Object.values(messages).map(
          (Message) => new Message(this)
       );
    }
 
+   setLogLevel(level: LogLevel) {
+      this.console.info("set log level", level);
+      this.logLevel = level;
+   }
+
    registerTool(tool: Tool<any, any>) {
       this.tools.push(tool);
    }
 
-   tool<Schema extends s.TSchema | undefined = undefined>(
+   tool<Schema extends s.Schema | undefined = undefined>(
       opts: ToolFactoryProps<string, Schema, ServerContext>
    ) {
       this.registerTool(tool(opts as any));
@@ -65,16 +86,40 @@ export class McpServer<ServerContext extends object = {}> {
    }
 
    get console() {
-      return {
-         log: (...args: any[]) => console.log("[MCP]", ...args),
-         error: (...args: any[]) => console.error("[MCP]", ...args),
-         warn: (...args: any[]) => console.warn("[MCP]", ...args),
+      const _args = (...args: any[]) =>
+         args.map((arg) => {
+            if (typeof arg === "object") {
+               return JSON.parse(JSON.stringify(arg, null, 2));
+            }
+            return arg;
+         });
+
+      const logLevel = this.logLevel;
+      return new Proxy(
+         {},
+         {
+            get(t, prop) {
+               if (prop in logLevels) {
+                  return (...args: any[]) => {
+                     const current = logLevelNames.indexOf(logLevel);
+                     const target = logLevelNames.indexOf(String(prop) as any);
+                     if (target > current) return;
+
+                     console[logLevels[prop]](
+                        `[MCP:${String(prop)}]`,
+                        ..._args(...args)
+                     );
+                  };
+               }
+            },
+         }
+      ) as unknown as {
+         [K in keyof typeof logLevels]: (...args: any[]) => void;
       };
    }
 
-   async handle(c: HonoContext): Promise<Response> {
+   async handle(request: Request): Promise<Response> {
       try {
-         const request = c.req.raw;
          const method = request.method;
 
          if (method === "POST") {
@@ -91,7 +136,7 @@ export class McpServer<ServerContext extends object = {}> {
 
             if (this.currentId) {
                if (this.history.has(this.currentId)) {
-                  this.console.warn("duplicate request", this.currentId);
+                  this.console.warning("duplicate request", this.currentId);
                   throw new McpError("InvalidRequest", {
                      error: "Duplicate request",
                   });
@@ -102,16 +147,15 @@ export class McpServer<ServerContext extends object = {}> {
                }
             }
 
-            this.console.log("message", body);
+            this.console.info("message", body);
 
             const message = this.messages.find((m) => m.is(body));
             if (message) {
-               const result = await message.respond(body);
-               this.console.log("result", result);
+               const result = await message.respond(body, request);
+               this.console.info("result", result);
 
                if (result === null) {
-                  c.status(202);
-                  return c.body(null);
+                  return new Response(null, { status: 202 });
                }
 
                if (this.currentId) {
@@ -121,22 +165,50 @@ export class McpServer<ServerContext extends object = {}> {
                   });
                }
 
-               return c.json(result, 200);
+               return Response.json(result, { status: 200 });
             }
 
             throw new McpError("MethodNotFound", {
-               method,
+               method: body.method,
+               params: body.params,
             });
          }
 
-         return c.json("Method not allowed", 405);
+         return new Response("Method not allowed", { status: 405 });
       } catch (e) {
          this.console.error(e);
          if (e instanceof McpError) {
-            return c.json(e.setId(this.currentId).toJSON(), e.statusCode);
+            return Response.json(e.setId(this.currentId).toJSON(), {
+               status: e.statusCode,
+            });
          }
 
-         return c.json(new McpError("InternalError").toJSON(), 500);
+         return Response.json(new McpError("InternalError").toJSON(), {
+            status: 500,
+         });
       }
    }
+}
+
+export interface McpServerOptions {
+   tools?: Tool<any, any, any | never>[];
+   resources?: Resource<any, any, any | never>[];
+   context?: object;
+   serverInfo?: McpServerInfo;
+   logLevel?: LogLevel;
+}
+
+export function mcpServer<Opts extends McpServerOptions>(opts: Opts) {
+   const server = new McpServer(
+      opts.serverInfo,
+      opts.context,
+      opts.tools,
+      opts.resources
+   );
+
+   if (opts.logLevel) {
+      server.setLogLevel(opts.logLevel);
+   }
+
+   return server;
 }

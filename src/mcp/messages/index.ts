@@ -10,3 +10,4 @@ export {
    ResourcesReadMessage,
 } from "./resources.message";
 export { CompletionMessage } from "./completion.message";
+export { LoggingMessage } from "./logging.message";
