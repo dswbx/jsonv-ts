@@ -3,7 +3,7 @@ import { Hono } from "hono";
 import { mcp } from "../middleware";
 import { Tool, tool } from "../tool";
 import { Resource, resource } from "../resource";
-import { s } from "../../lib";
+import * as s from "jsonv-ts";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { McpClient } from "../client";

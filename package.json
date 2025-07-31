@@ -15,7 +15,7 @@
          ]
       }
    },
-   "description": "A simple, lightweight (<6kb gzipped) and dependency-free TypeScript library for defining and validating JSON schemas with static type inference. It also provides Hono middleware for OpenAPI generation and validation.",
+   "description": "JSON Schema builder and validator for TypeScript with static type inference, Hono middleware for OpenAPI generation and validation, and MCP server/client implementation. Lightweight, dependency-free, and built on Web Standards.",
    "repository": {
       "type": "git",
       "url": "git+https://github.com/dswbx/jsonv-ts.git"
@@ -108,7 +108,8 @@
       "hono",
       "openapi",
       "swagger",
-      "typescript"
+      "typescript",
+      "mcp"
    ],
    "madge": {
       "detectiveOptions": {

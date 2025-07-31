@@ -1,7 +1,7 @@
 import { describe, expect, it } from "bun:test";
 import { Hono } from "hono";
 import { mcp } from "../middleware";
-import * as s from "../../lib";
+import * as s from "jsonv-ts";
 import { tool } from "../tool";
 import { McpServer } from "../server";
 

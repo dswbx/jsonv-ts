@@ -1,7 +1,7 @@
 [![npm version](https://img.shields.io/npm/v/jsonv-ts.svg)](https://npmjs.org/package/jsonv-ts)
 ![gzipped size of jsonv-ts](https://img.badgesize.io/https://unpkg.com/jsonv-ts@latest/dist/lib/index.js?compression=gzip&label=jsonv-ts)
 ![gzipped size of jsonv-ts/hono](https://img.badgesize.io/https://unpkg.com/jsonv-ts@latest/dist/hono/index.js?compression=gzip&label=jsonv-ts/hono)
-![gzipped size of jsonv-ts/mcp](https://img.badgesize.io/https://unpkg.com/jsonv-ts@latest/dist/mcp/index.js?compression=gzip&label=jsonv-ts/mcp)
+![gzipped size of jsonv-ts/mcp](https://img.badgesize.io/https://unpkg.com/jsonv-ts@0.4.0/dist/mcp/index.js?compression=gzip&label=jsonv-ts/mcp)
 
 # jsonv-ts: JSON Schema Builder and Validator for TypeScript
 
@@ -44,15 +44,17 @@
 <!-- /TOC -->
 <!-- /TOC -->
 
-A simple, lightweight (~6kb gzipped) and dependency-free TypeScript library for defining and validating JSON schemas with static type inference. The schemas composed can be used with any JSON schema validator, it strips all metadata when being JSON stringified. It has an integrated validator that can be used to validate instances against the latest JSON schema draft (2020-12).
-
-`jsonv-ts` allows you to define JSON schemas using a TypeScript API. It provides functions for all standard JSON schema types (`object`, `string`, `number`, `array`, `boolean`) as well as common patterns like `optional` fields, union types (`anyOf`, `oneOf`, and `allOf`), and constants/enums. The `Static` type helper infers the corresponding TypeScript type directly from your schema definition.
+A simple, lightweight and dependency-free TypeScript library for defining and validating JSON schemas with static type inference.
 
 -  Type-safe JSON schema definition in TypeScript.
 -  Static type inference from schemas using the `Static` helper.
--  Support for standard JSON schema types and keywords.
 -  Hono integration for OpenAPI generation and request validation.
--  MCP server implementation.
+-  MCP server and client implementation.
+-  Support for standard JSON schema types and keywords.
+
+The schemas composed can be used with any JSON schema validator, it strips all metadata when being JSON stringified. It has an integrated validator that can be used to validate instances against the latest JSON schema draft (2020-12).
+
+`jsonv-ts` allows you to define JSON schemas using a TypeScript API. It provides functions for all standard JSON schema types (`object`, `string`, `number`, `array`, `boolean`) as well as common patterns like `optional` fields, union types (`anyOf`, `oneOf`, and `allOf`), and constants/enums. The `Static` type helper infers the corresponding TypeScript type directly from your schema definition.
 
 ## Installation
 
@@ -656,7 +658,7 @@ const app = new Hono().use(
       sessionsEnabled: true,
       // optionally specify the path to the MCP endpoint
       endpoint: {
-         path: "/sse",
+         path: "/mcp",
       },
    })
 );
@@ -671,6 +673,15 @@ import { McpClient } from "jsonv-ts/mcp";
 
 const client = new McpClient({ url: "http://localhost/sse" });
 
+// list resources
+const resources = await client.listResources();
+
+// read a resource
+const resource = await client.readResource({
+   uri: "file:///example.txt",
+});
+
+// call a tool
 const result = await client.callTool({
    name: "add",
    arguments: { a: 1, b: 2 },
@@ -803,3 +814,4 @@ MIT
 -  [schemasafe](https://github.com/ExodusMovement/schemasafe) for the format keywords
 -  [JSON Schema Test Suite](https://github.com/json-schema-org/JSON-Schema-Test-Suite) for the validation tests
 -  [hono-openapi](https://github.com/rhinobase/hono-openapi) for the OpenAPI generation inspiration
+-  [modelcontextprotocol/typescript-sdk](https://github.com/modelcontextprotocol/typescript-sdk) for the MCP server and client reference
