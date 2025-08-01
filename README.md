@@ -233,11 +233,11 @@ type Undefined = Static<typeof undefSchema>; // undefined
 
 // Object literal
 const objSchema = s.literal({ name: "hello" });
-type Obj = Static<typeof objSchema>; // { readonly name: "hello" }
+type Obj = Static<typeof objSchema>; // { name: "hello" }
 
 // Array literal
 const arrSchema = s.literal([1, "2", true]);
-type Arr = Static<typeof arrSchema>; // readonly [1, "2", true]
+type Arr = Static<typeof arrSchema>; // [1, "2", true]
 ```
 
 You can also add additional schema properties:

@@ -2,22 +2,37 @@ import type { IAnySchema, Schema } from "../schema";
 import { fromSchema } from "../schema/from-schema";
 import type { Static } from "../static";
 import type { StaticCoerced } from "../static";
-import { mergeObject } from "../utils";
-import type { ValidationResult } from "./validate";
+import type { ErrorDetail } from "../utils/details";
 
-export class ParseError extends Error {
-   override name = "ParseError";
+export class InvalidSchemaError extends Error {
+   constructor(
+      public schema: Schema,
+      public value: unknown,
+      public errors: ErrorDetail[] = []
+   ) {
+      super(
+         `Invalid schema given for ${JSON.stringify(value, null, 2)}\n\n` +
+            `Error: ${JSON.stringify(errors[0], null, 2)}`
+      );
+   }
 
-   constructor(public readonly result: ValidationResult) {
-      const first = result.errors[0];
-      super(first?.error ?? "Invalid value");
+   first() {
+      return this.errors[0]!;
+   }
+
+   firstToString() {
+      const first = this.first();
+      return `${first.error} at ${first.instanceLocation}`;
    }
 }
 
 export type ParseOptions = {
    withDefaults?: boolean;
-   coerse?: boolean;
+   withExtendedDefaults?: boolean;
+   coerce?: boolean;
+   coerceDropUnknown?: boolean;
    clone?: boolean;
+   onError?: (errors: ErrorDetail[]) => void;
 };
 
 const cloneSchema = <S extends Schema>(schema: S): S => {
@@ -26,21 +41,37 @@ const cloneSchema = <S extends Schema>(schema: S): S => {
 };
 
 export function parse<
-   S extends IAnySchema,
-   Opts extends ParseOptions = ParseOptions,
-   Out = Opts extends { coerce: true } ? StaticCoerced<S> : Static<S>
->(_schema: S, v: unknown, opts: Opts = {} as Opts): Out {
+   S extends Schema,
+   Options extends ParseOptions = ParseOptions
+>(
+   _schema: S,
+   v: unknown,
+   opts?: Options
+): Options extends { coerce: true } ? StaticCoerced<S> : Static<S> {
    const schema = (
-      opts.clone ? cloneSchema(_schema as any) : _schema
+      opts?.clone ? cloneSchema(_schema as any) : _schema
    ) as Schema;
-   const value = opts.coerse !== false ? schema.coerce(v) : v;
-   const result = schema.validate(value, {
+   let value =
+      opts?.coerce !== false
+         ? schema.coerce(v, { dropUnknown: opts?.coerceDropUnknown ?? false })
+         : v;
+   if (opts?.withDefaults !== false) {
+      value = schema.template(value, {
+         withOptional: true,
+         withExtendedOptional: opts?.withExtendedDefaults ?? false,
+      });
+   }
+
+   const result = _schema.validate(value, {
       shortCircuit: true,
       ignoreUnsupported: true,
    });
-   if (!result.valid) throw new ParseError(result);
-   if (opts.withDefaults) {
-      return mergeObject(schema.template({ withOptional: true }), value) as any;
+   if (!result.valid) {
+      if (opts?.onError) {
+         opts.onError(result.errors);
+      } else {
+         throw new InvalidSchemaError(schema, v, result.errors);
+      }
    }
 
    return value as any;

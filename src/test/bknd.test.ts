@@ -799,4 +799,43 @@ describe("schemas", () => {
          },
       });
    });
+
+   test("AppMedia partial", async () => {
+      const schema = s.strictObject(
+         {
+            enabled: s.boolean({ default: false }),
+            basepath: s.string({ default: "/api/media" }),
+            entity_name: s.string({ default: "media" }),
+            storage: s.strictObject(
+               {
+                  body_max_size: s
+                     .number({
+                        description:
+                           "Max size of the body in bytes. Leave blank for unlimited.",
+                     })
+                     .optional(),
+               },
+               { default: {} }
+            ),
+            adapter: s.any().optional(),
+         },
+         {
+            default: {},
+         }
+      );
+
+      const payload = {
+         enabled: true,
+         storage: {},
+         adapter: { type: "local", config: { path: "./" } },
+      };
+
+      console.log(
+         "parsed",
+         s.parse(schema, payload, {
+            withDefaults: true,
+            //withExtendedDefaults: true,
+         })
+      );
+   });
 });

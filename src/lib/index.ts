@@ -50,7 +50,11 @@ export type {
 } from "./validation/validate";
 export { error, type ErrorDetail, valid, makeOpts } from "./utils/details";
 export { type CoercionOptions } from "./validation/coerce";
-export { type ParseOptions, parse, ParseError } from "./validation/parse";
+export {
+   type ParseOptions,
+   parse,
+   InvalidSchemaError,
+} from "./validation/parse";
 
 import { object, strictObject, partialObject } from "./object/object";
 import { string } from "./string/string";

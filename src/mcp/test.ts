@@ -26,6 +26,7 @@ const test = new Tool(
 
 const test2 = tool({
    name: "test2",
+   description: "test2 description1",
    schema: s.object({
       name: s.string(),
       age: s.number().optional(),
