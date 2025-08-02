@@ -2,7 +2,8 @@ import { describe, expect, it } from "bun:test";
 import { Hono } from "hono";
 import { mcp } from "../middleware";
 import * as s from "jsonv-ts";
-import { tool } from "../tool";
+import { Tool } from "../tool";
+import { Resource } from "../resource";
 import { McpServer } from "../server";
 
 describe("mcp base", () => {
@@ -12,27 +13,35 @@ describe("mcp base", () => {
          version: "1.0.0",
       });
 
-      server.tool({
-         name: "add",
-         description: "Add two numbers",
-         schema: s.object({
-            a: s.number(),
-            b: s.number(),
-         }),
-         handler: async ({ a, b }, ctx) => {
-            return ctx.text(String(a + b));
-         },
-      });
+      server.addTool(
+         new Tool(
+            "add",
+            {
+               description: "Add two numbers",
+               inputSchema: s.object({
+                  a: s.number(),
+                  b: s.number(),
+               }),
+            },
+            async ({ a, b }, ctx) => {
+               return ctx.text(String(a + b));
+            }
+         )
+      );
 
-      server.resource({
-         name: "greeting",
-         uri: "greeting://{name}",
-         title: "Greeting Resource",
-         description: "Dynamic greeting resource",
-         handler: async ({ name }, ctx) => {
-            return ctx.text(`Hello, ${name}!`);
-         },
-      });
+      server.addResource(
+         new Resource(
+            "greeting",
+            "greeting://{name}",
+            async (c, { name }) => {
+               return c.text(`Hello, ${name}!`);
+            },
+            {
+               title: "Greeting Resource",
+               description: "Dynamic greeting resource",
+            }
+         )
+      );
 
       // make a request to the server
       const request = new Request("http://localhost/sse", {
@@ -52,8 +61,6 @@ describe("mcp base", () => {
             contents: [
                {
                   name: "greeting",
-                  title: "Greeting Resource",
-                  description: "Dynamic greeting resource",
                   mimeType: "text/plain",
                   uri: "greeting://John",
                   text: "Hello, John!",
@@ -82,11 +89,8 @@ describe("mcp base", () => {
                version: "1.0.0",
             },
             tools: [
-               tool({
-                  name: "test",
-                  handler: async (params, ctx) => {
-                     return ctx.text("hello world");
-                  },
+               new Tool("test", undefined, async (params, ctx) => {
+                  return ctx.text("hello world");
                }),
             ],
          })

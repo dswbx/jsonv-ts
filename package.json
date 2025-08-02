@@ -31,6 +31,7 @@
       "test": "bun types && bun test:unit && bun test:spec",
       "test:spec": "clear && bun run src/test/spec/run.ts",
       "build": "rm -rf dist && tsup && bun run build:types",
+      "watch": "bun run build && tsup --watch",
       "build:types": "tsc --emitDeclarationOnly",
       "benchmark": "bun run src/test/validation/benchmark.ts",
       "fetch": "npx giget gh:json-schema-org/JSON-Schema-Test-Suite/tests src/test/spec/lib",
@@ -41,6 +42,7 @@
    },
    "devDependencies": {
       "@cfworker/json-schema": "^4.1.1",
+      "@modelcontextprotocol/sdk": "^1.17.1",
       "@sinclair/typebox": "^0.34.35",
       "@standard-schema/spec": "^1.0.0",
       "@types/bun": "latest",
@@ -89,7 +91,7 @@
       "format": "esm",
       "platform": "neutral",
       "metafile": true,
-      "minify": true,
+      "minify": false,
       "clean": true,
       "outDir": "dist"
    },

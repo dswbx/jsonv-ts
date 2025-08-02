@@ -1,16 +1,16 @@
 import * as messages from "./messages";
 import type { RpcMessage, TRpcId, TRpcRawRequest, TRpcResponse } from "./rpc";
 import * as s from "jsonv-ts";
-import { tool, type Tool, type ToolFactoryProps } from "./tool";
+import { Tool, type ToolConfig, type ToolHandler } from "./tool";
 import { McpError } from "./error";
 import {
-   resource,
-   type Resource,
-   type ResourceFactoryProps,
+   Resource,
+   type ResourceConfig,
+   type ResourceHandler,
    type TResourceUri,
 } from "./resource";
 
-const serverInfoSchema = s.object({
+const serverInfoSchema = s.strictObject({
    name: s.string(),
    version: s.string(),
 });
@@ -33,10 +33,11 @@ export const protocolVersion = "2025-06-18";
 export class McpServer<
    ServerContext extends object = {},
    Tools extends Tool<any, any, any | never>[] = Tool<any, any, any | never>[],
-   Resources extends Resource<any, any, any | never>[] = Resource<
+   Resources extends Resource<any, any, any, any>[] = Resource<
       any,
       any,
-      any | never
+      any,
+      any
    >[]
 > {
    protected readonly messages: RpcMessage<string, s.Schema>[] = [];
@@ -79,25 +80,32 @@ export class McpServer<
       this.logLevel = level;
    }
 
-   registerTool(tool: Tool<any, any>) {
+   addTool<T extends Tool<any, any, any | never>>(tool: T) {
       this.tools.push(tool);
-   }
-
-   tool<Schema extends s.Schema | undefined = undefined>(
-      opts: ToolFactoryProps<string, Schema, ServerContext>
-   ) {
-      this.registerTool(tool(opts as any));
       return this;
    }
 
-   registerResource(resource: Resource<any, any, any>) {
-      this.resources.push(resource);
+   tool<Name extends string, Config extends ToolConfig | undefined = undefined>(
+      name: Name,
+      config: Config,
+      handler: ToolHandler<Config, ServerContext>
+   ) {
+      this.tools.push(new Tool(name, config, handler));
+      return this;
    }
 
-   resource<Uri extends TResourceUri>(
-      opts: ResourceFactoryProps<string, Uri, ServerContext>
-   ) {
-      this.registerResource(resource(opts as any));
+   addResource<R extends Resource<any, any, any, any>>(resource: R) {
+      this.resources.push(resource);
+      return this;
+   }
+
+   resource<
+      Name extends string,
+      Uri extends TResourceUri,
+      Handler extends ResourceHandler<Uri, ServerContext>,
+      Config extends ResourceConfig | undefined = undefined
+   >(name: Name, uri: Uri, handler: Handler, config?: Config) {
+      this.resources.push(new Resource(name, uri, handler, config));
       return this;
    }
 

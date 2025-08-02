@@ -1,11 +1,7 @@
 import { describe, expect, it } from "bun:test";
-import {
-   extractParamValues,
-   matchPath,
-   Resource,
-   type TResourceUri,
-} from "./resource";
+import { extractParamValues, matchPath, Resource } from "./resource";
 import { expectTypeOf } from "expect-type";
+import { McpServer } from "./server";
 
 describe("resource", () => {
    it("should extract params from uri", () => {
@@ -26,7 +22,7 @@ describe("resource", () => {
 
    it("should be dynamic", () => {
       const uri = "users://{userId}/profile";
-      const resource = new Resource("users", uri, async (params, context) => {
+      const resource = new Resource("users", uri, async (c, params) => {
          expectTypeOf<typeof params>().toEqualTypeOf<{ userId: string }>();
          return {
             text: `hello ${params.userId}`,
@@ -37,7 +33,7 @@ describe("resource", () => {
 
    it("should not be dynamic", () => {
       const uri = "users://123/profile";
-      const resource = new Resource("users", uri, async (params, context) => {
+      const resource = new Resource("users", uri, async (c, params) => {
          expectTypeOf<typeof params>().toEqualTypeOf<{}>();
 
          return {
@@ -51,7 +47,7 @@ describe("resource", () => {
       {
          // dynamic
          const uri = "users://{userId}/profile";
-         const resource = new Resource("users", uri, async ({ userId }) => {
+         const resource = new Resource("users", uri, async (c, { userId }) => {
             return {
                text: `hello ${userId}`,
             };
@@ -61,7 +57,8 @@ describe("resource", () => {
             uriTemplate: uri,
             name: "users",
             title: undefined,
-            mimeType: "text/plain",
+            size: undefined,
+            mimeType: undefined,
             description: undefined,
          });
       }
@@ -79,9 +76,40 @@ describe("resource", () => {
             uri: uri,
             name: "users",
             title: undefined,
-            mimeType: "text/plain",
+            size: undefined,
+            mimeType: undefined,
             description: undefined,
          });
       }
+   });
+
+   it("should work with factory", () => {
+      const res1 = new Resource(
+         "users",
+         "users://{userId}/profile",
+         async (c, { userId }) => {
+            expectTypeOf<typeof userId>().toEqualTypeOf<string>();
+            return {
+               text: `hello ${userId}`,
+            };
+         }
+      );
+
+      const server = new McpServer(undefined as any, {
+         foo: "bar",
+      });
+      server.resource(
+         "users",
+         "users://{userId}/profile",
+         async (c, { userId }) => {
+            expectTypeOf<typeof userId>().toEqualTypeOf<string>();
+            expectTypeOf<typeof c.context>().toEqualTypeOf<{ foo: string }>();
+            return {
+               text: `hello ${userId}`,
+            };
+         }
+      );
+
+      expect(res1.toJSON()).toEqual(server.resources[0]?.toJSON() as any);
    });
 });

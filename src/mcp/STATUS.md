@@ -1,12 +1,12 @@
 This package adds native MCP capabilities based on Hono. It doesn't aim to support all features just yet, most importantly the resource and tool calling, in a stateless fashion. See progress below.
 
-Based on: https://modelcontextprotocol.io/specification/2025-03-26
+Based on: https://modelcontextprotocol.io/specification/2025-06-18
 
 ---
 
 Transports:
 
--  [ ] STDIO
+-  [ ] ~~STDIO~~ (not Web Standard)
 -  [x] Streamable HTTP
 
 Requests:
@@ -24,7 +24,8 @@ Requests:
 -  [x] call tool
 -  [x] set level (logging)
 -  [ ] create message
--  [ ] complete
+-  [x] complete (resource)
+-  [ ] complete (prompt)
 -  [ ] list roots
 
 Notifications:
@@ -47,9 +48,26 @@ Tool:
 -  [x] add
 -  [x] execute
 -  [x] text content
+-  [x] inputSchema
+-  [x] annotations
+-  [ ] outputSchema
 -  [ ] audio content
 -  [ ] image content
 -  [ ] embedded content
+
+Resource:
+
+-  [x] create
+-  [x] add
+-  [x] execute
+-  [x] text content
+-  [x] json content
+-  [x] binary content
+-  [x] annotations
+-  [x] dynamic
+-  [x] completions: list
+-  [x] completions: complete
+-  [ ] resource_links
 
 Client:
 
@@ -72,3 +90,10 @@ Client:
 -  [ ] subscribeResource
 -  [ ] unsubscribeResource
 -  [ ] sendRootsListChanged
+
+---
+
+Additional features:
+
+-  [x] Web Standard only
+-  [x] Server Context

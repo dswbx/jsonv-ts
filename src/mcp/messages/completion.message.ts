@@ -1,11 +1,13 @@
 import * as s from "jsonv-ts";
 import { RpcMessage, type TRpcRequest } from "../rpc";
+import { McpError } from "../error";
+import { isPlainObject } from "../utils";
 
 // currently just a placeholder to prevent errors
 
 export class CompletionMessage extends RpcMessage {
    method = "completion/complete";
-   params = s.strictObject({
+   params = s.object({
       argument: s.strictObject({
          name: s.string(),
          value: s.string(),
@@ -23,6 +25,24 @@ export class CompletionMessage extends RpcMessage {
    });
 
    override async respond(message: TRpcRequest<typeof this.params>) {
+      const ref = message.params.ref;
+      if (ref.type === "ref/resource") {
+         const resource = this.server.resources.find((r) => r.uri === ref.uri);
+         if (!resource) {
+            throw new McpError("InvalidParams", {
+               uri: ref.uri,
+            });
+         }
+
+         return this.formatRespond(message, {
+            completion: await resource.suggest(
+               message.params.argument.name,
+               message.params.argument.value,
+               {}
+            ),
+         });
+      }
+
       return this.formatRespond(message, {
          completion: {
             values: [],

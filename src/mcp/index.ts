@@ -1,15 +1,19 @@
-export { McpServer, type McpServerInfo } from "./server";
+export {
+   McpServer,
+   type McpServerInfo,
+   type McpServerOptions,
+   mcpServer,
+} from "./server";
 export {
    Tool,
-   tool,
+   type ToolConfig,
    type ToolAnnotation,
    type ToolHandlerCtx,
    type ToolResponse,
 } from "./tool";
 export {
    Resource,
-   resource,
-   type ResourceOptions,
+   type ResourceConfig,
    type ResourceResponse,
    type TResourceUri,
    type ResourceHandlerCtx,

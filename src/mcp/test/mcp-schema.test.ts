@@ -2,7 +2,7 @@ import { describe, expect, it } from "bun:test";
 import { Hono } from "hono";
 import { mcp } from "../middleware";
 import * as s from "../../lib";
-import { tool, type ToolHandlerCtx } from "../tool";
+import { Tool, type ToolHandlerCtx } from "../tool";
 import { set } from "lodash-es";
 
 export class ToolObjectSchema<
@@ -19,17 +19,19 @@ export class ToolObjectSchema<
    }
 
    getTool(node: s.Node<ToolObjectSchema>) {
-      return tool({
-         name: this.name,
-         handler: async (params, ctx: ToolHandlerCtx<any>) => {
-            console.log("context", ctx.context);
+      return new Tool(
+         this.name,
+         {
+            inputSchema: this as unknown as s.ObjectSchema<P, O>,
+         },
+         async (params, ctx: ToolHandlerCtx<any>) => {
+            /* console.log("context", ctx.context);
             console.log("params", params);
-            console.log("request", ctx.request);
+            console.log("request", ctx.request); */
             set(ctx.context.value, node.instancePath, params);
             return ctx.text(`hello world at: ${node.instancePath.join(".")}`);
-         },
-         schema: this,
-      });
+         }
+      );
    }
 }
 
@@ -57,14 +59,14 @@ describe("mcp schema", () => {
          },
          else: "else",
       };
-      console.log(
+      /* console.log(
          JSON.parse(JSON.stringify([...schema.walk({ data: value })], null, 2))
-      );
+      ); */
 
       const toolNodes = [...schema.walk({ data: value })].filter(
          (n) => n.schema instanceof ToolObjectSchema
       );
-      console.log(JSON.parse(JSON.stringify(toolNodes, null, 2)));
+      //console.log(JSON.parse(JSON.stringify(toolNodes, null, 2)));
 
       const app = new Hono().use(
          mcp({
@@ -84,7 +86,7 @@ describe("mcp schema", () => {
          }),
       });
       const body = await res.json();
-      console.log(body);
+      //console.log(body);
 
       // call it
       {
@@ -103,8 +105,8 @@ describe("mcp schema", () => {
             }),
          });
          const body = await res.json();
-         console.log("called", body);
-         console.log("value", value);
+         //console.log("called", body);
+         //console.log("value", value);
          expect(value).toEqual({
             something: {
                name: "new name",

@@ -204,25 +204,29 @@ export class ObjectSchema<
    }
 
    strict() {
-      return new ObjectSchema(this.properties, {
-         ...this[symbol].raw,
-         additionalProperties: false,
-      }) as unknown as ObjectSchema<
+      // it's important to set properties on the active instance
+      // because of potential inheritance
+
+      // @ts-expect-error
+      this.additionalProperties = booleanSchema(false);
+      this[symbol].raw.additionalProperties = false;
+
+      return this as unknown as ObjectSchema<
          P,
          Merge<O & { additionalProperties: false }>
       >;
    }
 
    partial() {
-      const props = { ...this.properties };
-      for (const [, prop] of Object.entries(props)) {
+      // it's important to set properties on the active instance
+      // because of potential inheritance
+
+      for (const [, prop] of Object.entries(this.properties)) {
          prop[symbol].optional = true;
       }
+      this.required = undefined;
 
-      return new ObjectSchema(
-         props,
-         this[symbol].raw
-      ) as unknown as ObjectSchema<
+      return this as unknown as ObjectSchema<
          {
             [Key in keyof P]: P[Key] extends Schema<infer O, infer T, infer C>
                ? Schema<

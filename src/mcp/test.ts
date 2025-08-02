@@ -1,54 +1,54 @@
 import { Hono } from "hono";
 import { McpServer } from "./server";
-import { Tool, tool } from "./tool";
+import { Tool } from "./tool";
 import * as s from "jsonv-ts";
 import { mcp } from "./middleware";
-import { resource, Resource } from "./resource";
+import { Resource } from "./resource";
 
 const test = new Tool(
    "test",
+   {
+      inputSchema: s.object(
+         {
+            name: s.string(),
+            age: s.number().optional(),
+         },
+         {
+            title: "...",
+         }
+      ),
+   },
    async (params, c) => {
       if (params.age && params.age > 100) {
          throw new Error("yeah that's too old");
       }
       return c.text(`Hello, ${params.name}! Age: ${params.age ?? "unknown"}`);
-   },
-   s.object(
-      {
+   }
+);
+
+const test2 = new Tool(
+   "test2",
+   {
+      description: "test2 description1",
+      inputSchema: s.object({
          name: s.string(),
          age: s.number().optional(),
-      },
-      {
-         title: "...",
-      }
-   )
-);
-
-const test2 = tool({
-   name: "test2",
-   description: "test2 description1",
-   schema: s.object({
-      name: s.string(),
-      age: s.number().optional(),
-   }),
-   handler: async (params, c) => {
-      return c.text(`Hello, ${params.name}! Age: ${params.age ?? "unknown"}`);
+      }),
    },
-});
-
-const context = new Tool(
-   "context",
    async (params, c) => {
-      console.log("--context", {
-         context: c.context,
-         params,
-      });
-      return c.json({
-         context: c.context,
-      });
-   },
-   undefined
+      return c.text(`Hello, ${params.name}! Age: ${params.age ?? "unknown"}`);
+   }
 );
+
+const context = new Tool("context", {}, async (params, c) => {
+   console.log("--context", {
+      context: c.context,
+      params,
+   });
+   return c.json({
+      context: c.context,
+   });
+});
 
 const staticResource = new Resource(
    "static",
@@ -59,36 +59,41 @@ const staticResource = new Resource(
       };
    }
 );
-const staticResource2 = resource({
-   name: "static2",
-   uri: "users://123/profile",
-   handler: async () => {
+const staticResource2 = new Resource(
+   "static2",
+   "users://123/profile",
+   async () => {
       return {
          text: "hello world",
       };
-   },
-});
-
-const dynamicResource = new Resource(
-   "dynamic",
-   "users://{username}/profile",
-   async ({ username }) => {
-      await new Promise((resolve) => setTimeout(resolve, 1000));
-      return {
-         text: `hello ${username}`,
-      };
    }
 );
-const dynamicResource2 = resource({
-   name: "dynamic2",
-   uri: "users://{username}/profile",
-   handler: async ({ username }, ctx) => {
+
+const dynamicResource = new Resource(
+   "dynamic12",
+   "users://{username}/profile",
+   async (c, params) => {
       await new Promise((resolve) => setTimeout(resolve, 1000));
-      return {
-         text: `hello ${username}`,
-      };
+      return c.text(`hello ${params.username}`);
    },
-});
+   {
+      list: ["123", "456"],
+      /* complete: {
+         username: async (value, context) => {
+            console.log("complete: dynamic", { value, context });
+            return ["123", "456"];
+         },
+      }, */
+   }
+);
+const dynamicResource2 = new Resource(
+   "dynamic2",
+   "users://{username}/profile",
+   async (c, { username }) => {
+      await new Promise((resolve) => setTimeout(resolve, 1000));
+      return c.text(`hello ${username}`);
+   }
+);
 
 const app = new Hono().use(
    mcp({
@@ -120,15 +125,17 @@ const srv = new McpServer(
    {
       foo: "bar",
    }
-).tool({
-   name: "test",
-   schema: s.object({
-      name: s.string(),
-   }),
-   handler: async (params, c) => {
-      return c.text(`Hello, ${c.context.foo}! ${params.name}`);
+).tool(
+   "test",
+   {
+      inputSchema: s.object({
+         name: s.string(),
+      }),
    },
-});
+   async (params, c) => {
+      return c.text(`Hello, ${c.context.foo}! ${params.name}`);
+   }
+);
 
 app.all("/mcp_test", async (c) => {
    const server = new McpServer(
@@ -140,9 +147,9 @@ app.all("/mcp_test", async (c) => {
          foo: "bar1",
       }
    );
-   server.registerTool(test);
-   server.registerTool(test2);
-   server.registerTool(context);
+   server.addTool(test);
+   server.addTool(test2);
+   server.addTool(context);
    return await server.handle(c.req.raw);
 });
 

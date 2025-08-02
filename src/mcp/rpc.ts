@@ -72,10 +72,11 @@ export abstract class RpcMessage<
       if (message.method !== this.method) {
          return false;
       }
-      if (!this.params.validate(message.params).valid) {
+      const result = this.params.validate(message.params);
+      if (!result.valid) {
          throw new McpError("InvalidParams", {
-            expected: this.params.toJSON(),
-            actual: message.params ?? null,
+            method: this.method,
+            errors: result.errors,
          });
       }
       return true;

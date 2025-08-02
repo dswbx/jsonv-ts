@@ -1,3 +1,9 @@
+import type {
+   MaybePromise,
+   ResourceCompletionResult,
+   ResourceCompletionResultLike,
+} from "./utils";
+
 type ExtractParams<T> = T extends `${infer _Start}{${infer Param}}${infer Rest}`
    ? { [K in Param | keyof ExtractParams<Rest>]: string }
    : {};
@@ -24,28 +30,46 @@ export function matchPath(template: string, actual: string): boolean {
    return regex.test(actual);
 }
 
-export type ResourceOptions = {
+export type ResourceConfig = {
    mimeType?: string;
    title?: string;
    description?: string;
+   size?: number;
+   list?: MaybePromise<ResourceCompletionResultLike>;
+   complete?: {
+      [key: string]: (
+         value: string,
+         context: any
+      ) => MaybePromise<ResourceCompletionResultLike>;
+   };
 };
 
 export type ResourceHandlerCtx<Context extends object = object> = {
-   text: (text: string) => ResourceResponse;
-   json: (json: object) => ResourceResponse;
-   binary: (binary: Uint8Array) => ResourceResponse;
+   text: (text: string, opts?: ResourceResponse) => ResourceResponse;
+   json: (json: object, opts?: ResourceResponse) => ResourceResponse;
+   binary: (binary: Uint8Array, opts?: ResourceResponse) => ResourceResponse;
    context: Context;
    uri: TResourceUri;
    request: Request;
 };
 
+export type ResourceHandler<
+   Uri extends TResourceUri,
+   Context extends object = {}
+> = (
+   ctx: ResourceHandlerCtx<Context>,
+   params: Uri extends TResourceUri ? ExtractParams<Uri> : never
+) => MaybePromise<ResourceResponse>;
+
 export type ResourceResponse = {
    mimeType?: string;
+   title?: string;
+   description?: string;
 } & (
    | {
-        text: string;
+        text?: string;
      }
-   | { blob: string }
+   | { blob?: string }
 );
 
 export class Resource<
@@ -58,12 +82,10 @@ export class Resource<
       public readonly name: Name,
       public readonly uri: Uri,
       public readonly handler: (
-         params: Params,
-         ctx: ResourceHandlerCtx<Context>
-      ) => Promise<ResourceResponse>,
-      public readonly options: ResourceOptions = {
-         mimeType: "text/plain",
-      }
+         ctx: ResourceHandlerCtx<Context>,
+         params: Params
+      ) => MaybePromise<ResourceResponse>,
+      public readonly options: ResourceConfig = {}
    ) {}
 
    isDynamic(): boolean {
@@ -74,32 +96,73 @@ export class Resource<
       return matchPath(this.uri, uri);
    }
 
+   async suggest(
+      name: string,
+      value: string,
+      context: object
+   ): Promise<ResourceCompletionResult> {
+      let items: string[] = [];
+
+      if (this.options.complete) {
+         const complete = this.options.complete[name];
+         if (complete) {
+            const res = await complete(value, context);
+            if (!Array.isArray(res)) {
+               return res;
+            }
+            items = res;
+         }
+      }
+      if (this.options.list) {
+         const list = await this.options.list;
+         if (!Array.isArray(list)) {
+            return list;
+         }
+         items = list;
+      }
+
+      const values = items.filter((v) => v.startsWith(value));
+
+      return {
+         values,
+         total: values.length,
+         hasMore: false,
+      };
+   }
+
    async call(
       uri: TResourceUri,
       context: Context,
       request: Request
    ): Promise<ResourceResponse> {
       const params = extractParamValues(this.uri, uri) as Params;
-      return await this.handler(params, {
-         context,
-         uri,
-         request,
-         text: (text: string) => ({
-            mimeType: "text/plain",
-            text: String(text),
-         }),
-         json: (json: object) => ({
-            mimeType: "application/json",
-            text: JSON.stringify(json),
-         }),
-         binary: (binary: File | Uint8Array) => ({
-            mimeType:
-               binary instanceof File
-                  ? binary.type
-                  : "application/octet-stream",
-            blob: binary instanceof File ? binary : (new Blob([binary]) as any),
-         }),
-      });
+      return await this.handler(
+         {
+            context,
+            uri,
+            request,
+            text: (text: string, opts?: ResourceResponse) => ({
+               mimeType: "text/plain",
+               text: String(text),
+               ...opts,
+            }),
+            json: (json: object, opts?: ResourceResponse) => ({
+               mimeType: "application/json",
+               text: JSON.stringify(json),
+               ...opts,
+            }),
+            binary: (binary: File | Uint8Array, opts?: ResourceResponse) => ({
+               mimeType:
+                  binary instanceof File
+                     ? binary.type
+                     : "application/octet-stream",
+               blob:
+                  binary instanceof File ? binary : (new Blob([binary]) as any),
+               ...opts,
+            }),
+         },
+         params
+      );
    }
 
    async toJSONContent(
@@ -107,11 +170,13 @@ export class Resource<
       uri: TResourceUri = this.uri,
       request: Request = new Request(uri)
    ) {
-      const { uriTemplate, ...rest } = this.toJSON();
+      const { uriTemplate, name, title, description, ...rest } = this.toJSON();
+      const res = await this.call(uri, context, request);
       return {
          ...rest,
          uri,
-         ...(await this.call(uri, context, request)),
+         name: res.title?.trim() ?? name,
+         ...res,
       };
    }
 
@@ -122,30 +187,7 @@ export class Resource<
          title: this.options.title,
          description: this.options.description,
          mimeType: this.options.mimeType,
+         size: this.options.size,
       };
    }
-}
-
-export type ResourceFactoryProps<
-   Name extends string = string,
-   Uri extends TResourceUri = TResourceUri,
-   Context extends object = {},
-   Params = Uri extends TResourceUri ? ExtractParams<Uri> : never
-> = {
-   name: Name;
-   uri: Uri;
-   handler: (
-      params: Params,
-      ctx: ResourceHandlerCtx<Context>
-   ) => Promise<ResourceResponse>;
-} & ResourceOptions;
-
-export function resource<
-   Name extends string = string,
-   Uri extends TResourceUri = TResourceUri,
-   Context extends object = {},
-   Params = Uri extends TResourceUri ? ExtractParams<Uri> : never
->(opts: ResourceFactoryProps<Name, Uri, Context, Params>) {
-   const { name, uri, handler, ...options } = opts;
-   return new Resource(name, uri, handler, options);
 }

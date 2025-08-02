@@ -23,6 +23,7 @@ export class InitializeMessage extends RpcMessage {
             tools: this.server.tools.length > 0 ? {} : undefined,
             resources: this.server.resources.length > 0 ? {} : undefined,
             logging: {},
+            completions: {},
          },
          serverInfo: this.server.serverInfo,
       });

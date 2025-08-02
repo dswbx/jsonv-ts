@@ -6,26 +6,24 @@ const server = new McpServer({
    version: "1.0.0",
 });
 
-server.tool({
-   name: "add",
-   description: "Add two numbers",
-   schema: s.object({
-      a: s.number(),
-      b: s.number(),
-   }),
-   handler: async ({ a, b }, ctx) => {
-      return ctx.text(String(a + b));
+server.tool(
+   "add",
+   {
+      name: "add",
+      description: "Add two numbers",
+      inputSchema: s.object({
+         a: s.number(),
+         b: s.number(),
+      }),
    },
-});
+   ({ a, b }, c) => c.text(String(a + b))
+);
 
-server.resource({
-   name: "greeting",
-   uri: "greeting://{name}",
-   title: "Greeting Resource",
-   description: "Dynamic greeting resource",
-   handler: async ({ name }, ctx) => {
-      return ctx.text(`Hello, ${name}!`);
-   },
+server.resource("greeting", "greeting://{name}", async (c, { name }) => {
+   return c.text(`Hello, ${name}!`, {
+      title: "Greeting Resource",
+      description: "Dynamic greeting resource",
+   });
 });
 
 // make a request to the server
@@ -58,3 +56,33 @@ console.log(data);
 //     ],
 //   },
 // }
+
+import { Hono } from "hono";
+import { mcp, Tool, Resource } from "jsonv-ts/mcp";
+
+const add = new Tool(
+   "add",
+   {
+      inputSchema: s.object({ a: s.number(), b: s.number() }),
+   },
+   ({ a, b }, c) => c.text(String(a + b))
+);
+const greeting = new Resource("greeting", "greeting://{name}", (c, { name }) =>
+   c.text(`Hello, ${name}!`)
+);
+
+const app = new Hono().use(
+   mcp({
+      // optionally specify the server info
+      serverInfo: { name: "my-server", version: "1.0.0" },
+      // register tools and resources
+      tools: [add],
+      resources: [greeting],
+      // optionally enable sessions
+      sessionsEnabled: true,
+      // optionally specify the path to the MCP endpoint
+      endpoint: {
+         path: "/mcp",
+      },
+   })
+);
