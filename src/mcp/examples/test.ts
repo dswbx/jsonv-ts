@@ -1,9 +1,9 @@
 import { Hono } from "hono";
-import { McpServer } from "./server";
-import { Tool } from "./tool";
+import { McpServer } from "../server";
+import { Tool } from "../tool";
 import * as s from "jsonv-ts";
-import { mcp } from "./middleware";
-import { Resource } from "./resource";
+import { mcp } from "../middleware";
+import { Resource } from "../resource";
 
 const test = new Tool(
    "test",

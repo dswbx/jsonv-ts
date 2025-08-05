@@ -12,6 +12,8 @@ export class InvalidRawSchemaError extends Error {
 
 export class InvariantError extends Error {
    constructor(message: string, public value: unknown) {
-      super(`${message}, got: '${JSON.stringify(value)}'`);
+      super(
+         `${message}, got: 'type "${typeof value}": ${JSON.stringify(value)}'`
+      );
    }
 }

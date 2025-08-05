@@ -1,75 +1,102 @@
-This package adds native MCP capabilities based on Hono. It doesn't aim to support all features just yet, most importantly the resource and tool calling, in a stateless fashion. See progress below.
+This package adds native MCP capabilities based on Web Standards. It doesn't aim to support all features just yet, most importantly the resource and tool calling, in a stateless fashion. See progress below.
 
 Based on: https://modelcontextprotocol.io/specification/2025-06-18
 
 ---
 
-Transports:
+## Base
 
--  [ ] ~~STDIO~~ (not Web Standard)
--  [x] Streamable HTTP
+### Capabilities
 
-Requests:
+-  [x] logging
+-  [ ] prompts
+-  [x] resources
+-  [x] tools
+-  [x] completions (resource)
+-  [ ] completions (prompt)
+-  [ ] sampling
+-  [ ] ~~roots~~
+-  [ ] experimental
 
--  [x] initialize
+### Misc
+
+-  [x] set logging level
+-  [ ] instructions (initialize)
+-  [ ] timeouts
+
+### Transports
+
+-  [ ] ~~STDIO~~
+-  [x] HTTP
+-  [ ] Streamable HTTP (stateful)
+-  [ ] WebSocket
+
+### Utilities
+
 -  [x] ping
--  [ ] paginate
--  [x] list resources
--  [x] list resource templates
--  [x] read resource
--  [ ] subscribe
--  [ ] list prompts
--  [ ] get prompt
--  [x] list tools
--  [x] call tool
--  [x] set level (logging)
--  [ ] create message
--  [x] complete (resource)
--  [ ] complete (prompt)
--  [ ] list roots
-
-Notifications:
-
--  [ ] server
+-  [ ] cancellation
 -  [ ] progress
--  [ ] client
--  [ ] cancelled
--  [ ] resource update
--  [x] initialized
--  [ ] logging message
--  [ ] tool list changed
--  [ ] roots list changed
--  [ ] prompt list changed
--  [ ] resource list changed
+-  [ ] pagination
 
-Tool:
+## Tools
 
--  [x] create
--  [x] add
--  [x] execute
--  [x] text content
--  [x] inputSchema
--  [x] annotations
+-  [x] tools list
+-  [ ] tools list cursor
+-  [ ] tools list changed
+-  [x] tools call
+-  [x] tools call isError
+
+### Tool Features
+
+-  [x] details: name, title, description, inputSchema, annotations
 -  [ ] outputSchema
--  [ ] audio content
--  [ ] image content
--  [ ] embedded content
+-  [ ] result annotations
+-  [x] result: text
+-  [ ] result: image
+-  [ ] result: audio
+-  [ ] resource links
 
-Resource:
+### Tool Nonstandard / Extra Features:
 
--  [x] create
--  [x] add
--  [x] execute
--  [x] text content
--  [x] json content
--  [x] binary content
--  [x] annotations
--  [x] dynamic
--  [x] completions: list
--  [x] completions: complete
--  [ ] resource_links
+-  [x] result: json
 
-Client:
+## Resources
+
+-  [x] resources list
+-  [x] resources templates list
+-  [x] resources read
+-  [ ] resources subscribe
+-  [ ] resources unsubscribe
+-  [x] resources list changed
+
+## Prompts
+
+-  [ ] prompts list
+-  [ ] prompts get
+
+## Security & Authorization
+
+-  [ ] OAuth 2.1 Resource Server
+-  [ ] resource indicators
+-  [ ] user consent workflows
+-  [ ] token validation
+-  [ ] rate limiting
+-  [ ] session management
+-  [ ] error reporting (security)
+
+## Notifications
+
+-  [x] notifications/initialized
+-  [ ] notifications/cancelled
+-  [ ] notifications/message
+-  [ ] notifications/progress
+-  [ ] notifications/prompts/list_changed
+-  [ ] notifications/resources/list_changed
+-  [ ] notifications/resources/updated
+-  [ ] ~~notifications/roots/list_changed~~
+-  [ ] notifications/tools/list_changed
+
+## Client
 
 -  [x] connect
 -  [x] ping
@@ -89,11 +116,21 @@ Client:
 -  [ ] listPrompts
 -  [ ] subscribeResource
 -  [ ] unsubscribeResource
--  [ ] sendRootsListChanged
+-  [ ] ~~sendRootsListChanged~~
+-  [ ] sampling createMessage
 
----
+### Additional features
 
-Additional features:
+-  [x] add request init (e.g. for Authorization)
+-  [ ] sampling create message
+-  [ ] sampling message notification
+-  [ ] model selection
+-  [ ] sampling parameters
+-  [ ] streaming responses
+-  [ ] ~~roots list~~
+-  [ ] ~~roots list changed notification~~
+
+## Nonstandard / Extra Features:
 
 -  [x] Web Standard only
 -  [x] Server Context
