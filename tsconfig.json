@@ -23,7 +23,9 @@
       "rootDir": "src",
       "tsBuildInfoFile": "./dist/tsconfig.tsbuildinfo",
       "paths": {
-         "jsonv-ts": ["./src/lib/index.ts"]
+         "jsonv-ts": ["./src/lib/index.ts"],
+         "jsonv-ts/hono": ["./src/hono/index.ts"],
+         "jsonv-ts/mcp": ["./src/mcp/index.ts"]
       }
    },
    "include": ["src/**/*.ts"],

@@ -1,10 +1,5 @@
 import * as s from "jsonv-ts";
-import {
-   RpcMessage,
-   RpcNotification,
-   type TRpcId,
-   type TRpcRequest,
-} from "../rpc";
+import { RpcMessage, RpcNotification, type TRpcRequest } from "../rpc";
 
 export class InitializeMessage extends RpcMessage {
    method = "initialize";

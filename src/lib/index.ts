@@ -49,6 +49,7 @@ export type {
    ValidationOptions,
 } from "./validation/validate";
 export { error, type ErrorDetail, valid, makeOpts } from "./utils/details";
+export { invariant, isSchema } from "./utils";
 export { type CoercionOptions } from "./validation/coerce";
 export {
    type ParseOptions,

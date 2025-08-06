@@ -4,9 +4,9 @@ import {
    McpServer,
    type LogLevel,
    type McpServerInfo,
-} from "./server";
-import type { Tool } from "./tool";
-import type { Resource } from "./resource";
+} from "../server";
+import type { Tool } from "../tool";
+import type { Resource } from "../resource";
 
 export type McpServerInit =
    | {

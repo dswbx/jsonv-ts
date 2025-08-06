@@ -59,15 +59,18 @@ export type ToolHandler<
 ) => Promise<ToolResponse>;
 
 export type ToolHandlerCtx<Context extends object = object> = {
-   text: (text: string) => any;
-   json: (json: object) => any;
+   text: (text: string) => ToolResponseText;
+   json: (json: object) => ToolResponseText;
    context: Context;
    request: Request;
 };
 
-export type ToolResponse = {
-   type: string;
+export type ToolResponseText = {
+   type: "text";
+   text: string;
 };
+
+export type ToolResponse = ToolResponseText;
 
 export class Tool<
    Name extends string = string,

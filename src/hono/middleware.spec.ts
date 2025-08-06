@@ -1,7 +1,6 @@
 import { test, expect, describe } from "bun:test";
 import { Hono } from "hono";
 import { validator as jsc } from "./middleware";
-//import { honoValidator as jsc } from "jsonv-ts/hono";
 import * as s from "../lib";
 import { expectTypeOf } from "expect-type";
 

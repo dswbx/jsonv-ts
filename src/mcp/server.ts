@@ -1,4 +1,4 @@
-import * as messages from "./messages";
+import { messages } from "./messages";
 import type { RpcMessage, TRpcId, TRpcRawRequest, TRpcResponse } from "./rpc";
 import * as s from "jsonv-ts";
 import { Tool, type ToolConfig, type ToolHandler } from "./tool";
@@ -211,6 +211,14 @@ export class McpServer<
             status: 500,
          });
       }
+   }
+
+   toJSON() {
+      return {
+         serverInfo: this.serverInfo,
+         tools: this.tools.map((t) => t.toJSON()),
+         resources: this.resources.map((r) => r.toJSON()),
+      };
    }
 }
 

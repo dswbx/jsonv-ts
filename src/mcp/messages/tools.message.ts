@@ -1,6 +1,6 @@
 import * as s from "jsonv-ts";
 import { McpError } from "../error";
-import { RpcMessage, type TRpcMessageResult, type TRpcRequest } from "../rpc";
+import { RpcMessage, type TRpcRequest } from "../rpc";
 
 export class ToolsListMessage extends RpcMessage {
    method = "tools/list";
