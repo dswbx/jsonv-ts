@@ -1,6 +1,6 @@
 import { describe, it, expect, mock, beforeAll, afterAll } from "bun:test";
 import { Hono } from "hono";
-import { mcp } from "../middleware";
+import { mcp } from "../hono/mcp.middleware";
 import { Tool } from "../tool";
 import { Resource } from "../resource";
 import * as s from "jsonv-ts";

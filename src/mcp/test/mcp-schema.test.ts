@@ -1,6 +1,6 @@
 import { describe, expect, it } from "bun:test";
 import { Hono } from "hono";
-import { mcp } from "../middleware";
+import { mcp } from "../hono/mcp.middleware";
 import * as s from "../../lib";
 import { Tool, type ToolHandlerCtx } from "../tool";
 import { set } from "lodash-es";

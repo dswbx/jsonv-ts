@@ -241,6 +241,8 @@ describe("mcp features", () => {
          );
 
       const server = getMcpServer(hono);
+      //    ^?
+
       const client = new McpClient({
          url: "http://localhost/sse",
          //fetch: new Hono().use(mcp(server)).request,
