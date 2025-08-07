@@ -117,7 +117,6 @@ const formats = {
    // we parse ip6 format with a simple scan, leaving embedded ipv4 validation to a regex
    // s0=count(:), s1=count(.), hex=count(a-zA-Z0-9), short=count(::)>0
    // 48-57: '0'-'9', 97-102, 65-70: 'a'-'f', 'A'-'F', 58: ':', 46: '.'
-   /* eslint-disable one-var */
    // prettier-ignore
    ipv6: (input: string) => {
     if (input.length > 45 || input.length < 2) return false
@@ -154,7 +153,6 @@ const formats = {
     if (!short) return s0 === spaces && start && hex > 0
     return (start || hex > 0) && s0 < spaces
   },
-   /* eslint-enable one-var */
    // matches ajv with optimization
    uri: (input: string) =>
       /^[a-z][a-z0-9+\-.]*:(?:\/?\/(?:(?:[a-z0-9\-._~!$&'()*+,;=:]|%[0-9a-f]{2})*@)?(?:\[(?:(?:(?:(?:[0-9a-f]{1,4}:){6}|::(?:[0-9a-f]{1,4}:){5}|(?:[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){4}|(?:(?:[0-9a-f]{1,4}:){0,1}[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){3}|(?:(?:[0-9a-f]{1,4}:){0,2}[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){2}|(?:(?:[0-9a-f]{1,4}:){0,3}[0-9a-f]{1,4})?::[0-9a-f]{1,4}:|(?:(?:[0-9a-f]{1,4}:){0,4}[0-9a-f]{1,4})?::)(?:[0-9a-f]{1,4}:[0-9a-f]{1,4}|(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d\d?))|(?:(?:[0-9a-f]{1,4}:){0,5}[0-9a-f]{1,4})?::[0-9a-f]{1,4}|(?:(?:[0-9a-f]{1,4}:){0,6}[0-9a-f]{1,4})?::)|v[0-9a-f]+\.[a-z0-9\-._~!$&'()*+,;=:]+)\]|(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d\d?)|(?:[a-z0-9\-._~!$&'()*+,;=]|%[0-9a-f]{2})*)(?::\d*)?(?:\/(?:[a-z0-9\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})*)*|\/?(?:(?:[a-z0-9\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})+(?:\/(?:[a-z0-9\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})*)*)?)(?:\?(?:[a-z0-9\-._~!$&'()*+,;=:@/?]|%[0-9a-f]{2})*)?(?:#(?:[a-z0-9\-._~!$&'()*+,;=:@/?]|%[0-9a-f]{2})*)?$/i.test(
@@ -168,7 +166,6 @@ const formats = {
    // ajv has /^(([^\x00-\x20"'<>%\\^`{|}]|%[0-9a-f]{2})|\{[+#./;?&=,!@|]?([a-z0-9_]|%[0-9a-f]{2})+(:[1-9][0-9]{0,3}|\*)?(,([a-z0-9_]|%[0-9a-f]{2})+(:[1-9][0-9]{0,3}|\*)?)*\})*$/i
    // this is equivalent
    // uri-template: https://tools.ietf.org/html/rfc6570
-   // eslint-disable-next-line no-control-regex
    "uri-template": (input: string) =>
       /^(?:[^\x00-\x20"'<>%\\^`{|}]|%[0-9a-f]{2}|\{[+#./;?&=,!@|]?(?:[a-z0-9_]|%[0-9a-f]{2})+(?::[1-9][0-9]{0,3}|\*)?(?:,(?:[a-z0-9_]|%[0-9a-f]{2})+(?::[1-9][0-9]{0,3}|\*)?)*\})*$/i.test(
          input
@@ -211,6 +208,15 @@ const formats = {
       }
    },
    // TODO: iri, iri-reference, idn-email, idn-hostname
+
+   /**
+    * OpenAPI
+    */
+   // https://spec.openapis.org/oas/v3.0.0#data-types
+   binary: () => true,
+   // hint to the UI to hide input strings
+   // https://spec.openapis.org/oas/v3.0.0#data-types
+   password: () => true,
 };
 
 export const format = (
@@ -226,3 +232,15 @@ export const format = (
    if (formats[format](value)) return valid();
    return error(opts, "format", `Expected format: ${format}`, value);
 };
+
+export function registerFormat(format: string, fn: (input: string) => boolean) {
+   formats[format] = fn;
+}
+
+export function unregisterFormat(format: string) {
+   delete formats[format];
+}
+
+export function getFormats() {
+   return Object.keys(formats);
+}
