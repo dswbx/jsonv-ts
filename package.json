@@ -92,7 +92,7 @@
       "format": "esm",
       "platform": "neutral",
       "metafile": true,
-      "minify": false,
+      "minify": true,
       "clean": true,
       "outDir": "dist"
    },
