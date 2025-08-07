@@ -1,6 +1,7 @@
 import { InvariantError } from "../errors";
 import type { PropertyName, JSONSchemaDefinition } from "../types";
 import { Schema, type ISchemaOptions } from "../schema/schema";
+import { schemaSymbol } from "../shared";
 
 export function isNull(value: unknown): value is null {
    return value === null;
@@ -59,7 +60,8 @@ export function isTypeSchema(
 }
 
 export function isSchema(schema: unknown): schema is Schema & ISchemaOptions {
-   return schema instanceof Schema;
+   return schema !== undefined && isObject(schema) && schemaSymbol in schema;
+   //return schema instanceof Schema;
 }
 
 export function isBooleanSchema(
@@ -134,7 +136,7 @@ export function mergeObject(object, ...sources) {
          if (value === undefined) {
             continue;
          }
-         
+
          // These checks are a week attempt at mimicking the various edge-case behaviors
          // that Lodash's `_.merge()` exhibits. Feel free to simplify and
          // remove checks that you don't need.
@@ -149,6 +151,6 @@ export function mergeObject(object, ...sources) {
          }
       }
    }
-   
+
    return object;
 }

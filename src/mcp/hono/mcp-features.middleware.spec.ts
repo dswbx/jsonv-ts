@@ -386,6 +386,7 @@ describe("mcp features", () => {
          annotations: {
             destructiveHint: true,
          },
+         _meta: undefined,
       });
 
       {

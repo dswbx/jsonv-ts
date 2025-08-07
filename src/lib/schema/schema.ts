@@ -10,6 +10,9 @@ import {
    type ValidationOptions,
    type ValidationResult,
 } from "../validation/validate";
+import { schemaSymbol } from "../shared";
+
+export { schemaSymbol as symbol };
 
 export type TSchemaTemplateOptions = {
    withOptional?: boolean;
@@ -45,10 +48,8 @@ export type StrictOptions<S extends ISchemaOptions, O extends S> = O & {
    [K in Exclude<keyof O, keyof S>]: never;
 };
 
-export const symbol = Symbol.for("schema");
-
 export interface IAnySchema extends IBaseSchemaOptions {
-   [symbol]: any;
+   [schemaSymbol]: any;
    toJSON(): object;
 }
 
@@ -59,7 +60,7 @@ export class Schema<
 > implements IBaseSchemaOptions
 {
    ["~standard"]: StandardSchemaV1.Props<Type, Type>;
-   [symbol]!: {
+   [schemaSymbol]!: {
       raw?: Options | any;
       static: StaticConstEnum<Options, Type>;
       coerced: Options extends {
@@ -90,7 +91,7 @@ export class Schema<
       Object.assign(this, { type }, rest);
 
       // @ts-expect-error shouldn't trash console
-      this[symbol] = {
+      this[schemaSymbol] = {
          raw: o,
          optional: false,
          overrides,
@@ -139,14 +140,14 @@ export class Schema<
          return value as any;
       }
 
-      if (this[symbol].raw?.template) {
-         const rawTmpl = this[symbol].raw.template(value, opts) as any;
+      if (this[schemaSymbol].raw?.template) {
+         const rawTmpl = this[schemaSymbol].raw.template(value, opts) as any;
          if (rawTmpl !== undefined) {
             value = rawTmpl;
          }
       }
 
-      const tmpl = this[symbol].overrides?.template?.(value, opts) as any;
+      const tmpl = this[schemaSymbol].overrides?.template?.(value, opts) as any;
       if (tmpl !== undefined) {
          value = tmpl;
       }
@@ -165,7 +166,7 @@ export class Schema<
          depth: opts?.depth ? opts.depth + 1 : 0,
       };
 
-      const customValidate = this[symbol].raw?.validate;
+      const customValidate = this[schemaSymbol].raw?.validate;
       if (customValidate !== undefined) {
          const result = customValidate(value, ctx);
          if (!result.valid) {
@@ -184,11 +185,12 @@ export class Schema<
          dropUnknown: opts?.dropUnknown || false,
       };
 
-      const customCoerce = this[symbol].raw?.coerce;
+      const customCoerce = this[schemaSymbol].raw?.coerce;
       if (customCoerce !== undefined) {
          return customCoerce(value, ctx) as any;
       }
-      const coerced = this[symbol].overrides?.coerce?.(value, ctx) ?? value;
+      const coerced =
+         this[schemaSymbol].overrides?.coerce?.(value, ctx) ?? value;
       return coerce(this, coerced, ctx) as any;
    }
 
@@ -199,19 +201,19 @@ export class Schema<
            Schema<
               O,
               S extends unknown
-                 ? T[typeof symbol]["static"] | undefined
+                 ? T[typeof schemaSymbol]["static"] | undefined
                  : S | undefined,
               C extends unknown
-                 ? T[typeof symbol]["coerced"] | undefined
+                 ? T[typeof schemaSymbol]["coerced"] | undefined
                  : C | undefined
            >
       : never {
-      this[symbol].optional = true;
+      this[schemaSymbol].optional = true;
       return this as any;
    }
 
    isOptional(): boolean {
-      return this[symbol].optional;
+      return this[schemaSymbol].optional;
    }
 
    children(opts?: WalkOptions): Node[] {

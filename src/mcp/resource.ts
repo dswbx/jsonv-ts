@@ -42,6 +42,9 @@ export type ResourceConfig = {
          context: any
       ) => MaybePromise<ResourceCompletionResultLike>;
    };
+   _meta?: {
+      [key: string]: unknown;
+   };
 };
 
 export type ResourceHandlerCtx<Context extends object = object> = {
@@ -188,6 +191,7 @@ export class Resource<
          description: this.options.description,
          mimeType: this.options.mimeType,
          size: this.options.size,
+         _meta: this.options._meta,
       };
    }
 }

@@ -45,6 +45,9 @@ export type ToolConfig = {
    inputSchema?: s.ObjectSchema<any, any>;
    outputSchema?: s.ObjectSchema<any, any>;
    annotations?: ToolAnnotation;
+   _meta?: {
+      [key: string]: unknown;
+   };
 };
 
 export type ToolHandler<
@@ -136,6 +139,7 @@ export class Tool<
             Object.keys(this.config?.annotations ?? {}).length > 0
                ? this.config?.annotations
                : undefined,
+         _meta: this.config?._meta,
       };
    }
 }

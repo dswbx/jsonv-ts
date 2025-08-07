@@ -299,7 +299,6 @@ export function getMcpServer(hono: Hono<any>) {
                   inputSchema,
                   headers,
                });
-               console.log("request", request);
                const response = await hono.request(request);
                if (
                   !response.ok &&

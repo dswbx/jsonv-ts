@@ -60,6 +60,7 @@ describe("resource", () => {
             size: undefined,
             mimeType: undefined,
             description: undefined,
+            _meta: undefined,
          });
       }
 
@@ -79,6 +80,7 @@ describe("resource", () => {
             size: undefined,
             mimeType: undefined,
             description: undefined,
+            _meta: undefined,
          });
       }
    });
