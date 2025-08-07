@@ -71,13 +71,18 @@ export class McpClient {
          this.sessionId = res.headers.get("Mcp-Session-Id") ?? undefined;
       }
 
-      const data = (await res.json()) as TRpcResponse<
-         TRpcMessageResult<Message>
-      >;
-      if (data.jsonrpc !== "2.0") {
-         throw new Error("Invalid JSON-RPC version");
+      try {
+         const data = (await res.json()) as TRpcResponse<
+            TRpcMessageResult<Message>
+         >;
+         if (data.jsonrpc !== "2.0") {
+            throw new Error("Invalid JSON-RPC version");
+         }
+         return data.result;
+      } catch (e) {
+         console.error(e);
+         throw e;
       }
-      return data.result;
    }
 
    async connect() {

@@ -22,7 +22,8 @@ export type McpServerInit =
 export interface McpOptionsBase {
    sessionsEnabled?: boolean;
    debug?: {
-      enableHistoryEndpoint?: boolean;
+      historyEndpoint?: boolean;
+      explainEndpoint?: boolean;
       logLevel?: LogLevel;
    };
    endpoint?: {
@@ -53,7 +54,7 @@ export const mcp = (opts: McpOptions): MiddlewareHandler => {
       if (mcpPath !== path) {
          if (
             sessionId &&
-            opts?.debug?.enableHistoryEndpoint &&
+            opts?.debug?.historyEndpoint &&
             path === `${mcpPath}/__history`
          ) {
             const server = sessions.get(sessionId);
@@ -61,18 +62,16 @@ export const mcp = (opts: McpOptions): MiddlewareHandler => {
                return c.json(Array.from(server.history.values()), 200);
             }
          }
-         //console.log("not mcp path", path, mcpPath);
+
          await next();
       } else {
          let server: McpServer | undefined;
 
          if (opts?.sessionsEnabled) {
             if (sessionId) {
-               //console.log("using existing session", sessionId);
                server = sessions.get(sessionId);
             } else {
                sessionId = crypto.randomUUID();
-               //console.log("creating new session", sessionId);
             }
          }
 
@@ -99,6 +98,12 @@ export const mcp = (opts: McpOptions): MiddlewareHandler => {
 
             if (opts?.sessionsEnabled) {
                sessions.set(sessionId!, server);
+            }
+         }
+
+         if (opts?.debug?.explainEndpoint) {
+            if (c.req.query("explain")) {
+               return c.json(server.toJSON());
             }
          }
 

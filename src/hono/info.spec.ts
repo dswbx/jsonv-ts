@@ -24,44 +24,40 @@ describe("hono info", () => {
 
       expect(JSON.parse(JSON.stringify(info(app)))).toEqual({
          "/some": {
-            methods: ["GET"],
-            openAPI: {
-               paths: {
-                  "/some": {
-                     get: {
-                        responses: {},
-                        operationId: "getSome",
-                        summary: "Some route",
-                        description: "Some description",
-                        tags: ["some"],
-                        parameters: [
-                           {
-                              name: "ok",
-                              in: "query",
-                              required: undefined,
-                              description: undefined,
-                              schema: {
-                                 type: "boolean",
-                              },
-                           },
-                        ],
+            GET: {
+               method: "GET",
+               openAPI: {
+                  responses: {},
+                  description: "Some description",
+                  summary: "Some route",
+                  operationId: "getSome",
+                  parameters: [
+                     {
+                        name: "ok",
+                        in: "query",
+                        schema: {
+                           type: "boolean",
+                        },
                      },
-                  },
+                  ],
+                  tags: ["some"],
                },
-            },
-            validation: {
-               query: {
-                  type: "object",
-                  properties: {
-                     ok: {
-                        type: "boolean",
+               validation: {
+                  query: {
+                     type: "object",
+                     properties: {
+                        ok: {
+                           type: "boolean",
+                        },
                      },
                   },
                },
             },
          },
          "/another": {
-            methods: ["GET"],
+            GET: {
+               method: "GET",
+            },
          },
       });
    });

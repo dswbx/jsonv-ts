@@ -1,15 +1,15 @@
 import type { Hono, ValidationTargets } from "hono";
 import { $symbol, type RouteHandler } from "./shared";
-import { registerPath } from "./openapi/utils";
+import { merge, registerPath } from "./openapi/utils";
 import type * as t from "./openapi/types";
 import type { JSONSchemaDefinition, ObjectSchema } from "jsonv-ts";
 import type { RouterRoute } from "hono/types";
 
 export type RouteInfo<Options extends InfoOptions = InfoOptions> = {
-   methods: string[];
+   method: string;
    openAPI?: Options extends { skipOpenAPI: true }
       ? undefined
-      : Partial<t.Document>;
+      : Partial<t.OperationObject>;
    validation?: Partial<
       Record<
          keyof ValidationTargets,
@@ -34,48 +34,59 @@ export function info<Options extends InfoOptions = InfoOptions>(
    hono: Hono<any>,
    options?: Options
 ) {
-   const routes: Record<string, RouteInfo<Options>> = {};
+   const routes: Record<
+      string,
+      {
+         [method: string]: RouteInfo<Options>;
+      }
+   > = {};
 
    for (const route of hono.routes) {
-      const path = [route.basePath, route.path]
-         .filter(Boolean)
-         .join("/")
-         .replace(/\/+/g, "/");
+      const path = route.path;
+      const method = route.method.toUpperCase();
 
       if (!routes[path]) {
-         routes[path] = {
-            methods: [],
+         routes[path] = {};
+      }
+
+      if (!routes[path][method]) {
+         routes[path][method] = {
+            method,
          } as RouteInfo<Options>;
       }
 
-      const method = route.method.toUpperCase();
-      routes[path].methods = Array.from(
-         new Set([...routes[path].methods, method])
-      );
-
       // always take the last handler
       if (route.handler) {
-         routes[path].handler = route.handler;
+         routes[path][method].handler = route.handler;
       }
 
       if ($symbol in route.handler) {
          const routeHandler = route.handler[$symbol] as RouteHandler;
          if (routeHandler) {
             if (!options?.skipOpenAPI) {
-               if (!routes[path].openAPI) {
-                  routes[path].openAPI = {} as any;
+               if (!routes[path][method].openAPI) {
+                  routes[path][method].openAPI = {} as any;
                }
-               registerPath(routes[path].openAPI as any, route, routeHandler);
+               const specs = {} as any;
+               registerPath(specs, route, routeHandler);
+               const specs2 = specs.paths[Object.keys(specs.paths)[0]!];
+
+               merge(
+                  routes[path][method].openAPI,
+                  specs2[Object.keys(specs2)[0]!]
+               );
             }
 
             if (routeHandler.type === "parameters") {
-               if (!routes[path].validation) {
-                  routes[path].validation = {};
+               if (!routes[path][method].validation) {
+                  routes[path][method].validation = {};
                }
 
-               if (!routes[path].validation[routeHandler.value.target]) {
+               if (
+                  !routes[path][method].validation[routeHandler.value.target]
+               ) {
                   // @ts-expect-error
-                  routes[path].validation[routeHandler.value.target] =
+                  routes[path][method].validation[routeHandler.value.target] =
                      options?.useSchemas
                         ? routeHandler.value.schema
                         : routeHandler.value.schema.toJSON();

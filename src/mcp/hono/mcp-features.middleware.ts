@@ -13,7 +13,10 @@ export type McpFeatureTool = {
    type: "tool";
    tool: {
       name: string;
-      config: ToolConfig;
+      config: Omit<ToolConfig, "inputSchema"> & {
+         inputSchema?: Partial<Record<keyof ValidationTargets, ObjectSchema>>;
+         noErrorCodes?: number[];
+      };
    };
 };
 
@@ -29,13 +32,13 @@ export type McpFeatureResource = {
 export type McpFeature = McpFeatureTool | McpFeatureResource;
 
 export type McpFeatureWithRouteInfo<T extends McpFeature = McpFeature> = T & {
-   info: RouteInfo<{ skipOpenAPI: true; useSchemas: true }>;
+   info: RouteInfo<{ useSchemas: true }>;
    path: string;
 };
 
 export const mcpTool = <E extends Env, P extends string>(
    name: string,
-   config: ToolConfig = {}
+   config: McpFeatureTool["tool"]["config"] = {}
 ) => {
    const handler: MiddlewareHandler<E, P> = async (c, next) => {
       await next();
@@ -85,11 +88,24 @@ export const replaceUrlParam = (
    return urlString;
 };
 
+// @todo: json and form need their own key
 export function infoValidationTargetsToSchema(
-   validation: Partial<Record<keyof ValidationTargets, ObjectSchema>> = {}
+   validation: Partial<Record<keyof ValidationTargets, ObjectSchema>> = {},
+   opts?: {
+      noSpecialTargetKeys?: boolean;
+   }
 ) {
    const count = Object.values(validation || {}).length;
    if (count === 0) return undefined;
+
+   // if a target is not an object shape, we need to wrap it in a param
+   for (const [target, schema] of Object.entries(validation)) {
+      if (schema && !schema.type) {
+         validation[target] = s.object({
+            [target]: schema,
+         });
+      }
+   }
 
    //const schemas = Object.values(validation || {});
    const schemas = Object.entries(validation || {}).reduce((acc, [k, v]) => {
@@ -119,33 +135,38 @@ export function payloadToValidationTargetPayload(
    );
 
    const props = (schema as ObjectSchema).properties;
-   return Object.fromEntries(
-      Object.entries(props).map(([k, v]) => {
-         // @ts-ignore
-         const target = v.$target;
-         invariant(target, "target must be a string", v);
-         return [
-            target,
-            {
-               [k]: payload[k],
-            },
-         ];
-      })
-   ) as Partial<Record<keyof ValidationTargets, Record<string, any>>>;
+   const result: Partial<Record<keyof ValidationTargets, Record<string, any>>> =
+      {};
+
+   for (const [k, v] of Object.entries(props)) {
+      // @ts-ignore
+      const target = v.$target;
+      invariant(target, "target must be a string", v);
+      result[target] = result[target] ?? {};
+      result[target][k] = payload[k];
+   }
+
+   return result;
 }
 
 export function featureInfoToRequest(
    feature: McpFeatureWithRouteInfo,
-   params: any
+   params: any,
+   opts?: {
+      headers?: Record<string, string | undefined>;
+      inputSchema?: ObjectSchema;
+   }
 ) {
-   const inputSchema = infoValidationTargetsToSchema(feature.info.validation);
+   const inputSchema =
+      opts?.inputSchema ??
+      infoValidationTargetsToSchema(feature.info.validation);
    const targets = inputSchema
       ? payloadToValidationTargetPayload(params, inputSchema)
       : {};
 
    const url = new URL("https://localhost");
-   const method = feature.info.methods[0] ?? "GET";
-   const headers: Record<string, string> = {};
+   const method = feature.info.method ?? "GET";
+   const headers: Record<string, string | undefined> = opts?.headers ?? {};
    const searchParams: Record<string, string> = {};
    let body: any = undefined;
 
@@ -155,7 +176,9 @@ export function featureInfoToRequest(
 
    if (targets.query) {
       for (const [k, v] of Object.entries(targets.query)) {
-         searchParams[k] = v;
+         if (v !== undefined && v !== null) {
+            searchParams[k] = v;
+         }
       }
    }
 
@@ -190,20 +213,23 @@ export function featureInfoToRequest(
 
    return new Request(url.toString(), {
       method,
-      headers,
+      headers: Object.fromEntries(
+         Object.entries(headers).filter(([, v]) => v !== undefined)
+      ) as HeadersInit,
       body,
    });
 }
 
 export function getMcpFeatures(hono: Hono<any>) {
-   const opts = { skipOpenAPI: true, useSchemas: true };
+   const opts = { useSchemas: true };
    const details = info(hono, opts);
    const features: McpFeatureWithRouteInfo[] = [];
 
    for (const route of hono.routes) {
       if ($symbol in route.handler) {
          const feature = route.handler[$symbol] as McpFeature;
-         const routeDetails = details[route.path];
+         const method = route.method.toUpperCase();
+         const routeDetails = details[route.path]?.[method];
 
          if (!routeDetails || !routeDetails.handler) {
             throw new Error(`Route ${route.path} has no handler`);
@@ -222,26 +248,63 @@ export function getMcpFeatures(hono: Hono<any>) {
    return features;
 }
 
+function sortInputSchema(inputSchema: ObjectSchema) {
+   inputSchema.properties = Object.fromEntries(
+      Object.entries(inputSchema.properties).sort(([, a], [, b]) => {
+         const getPriority = (prop: Schema) => {
+            const isPath = (prop as any).$target === "param";
+            const isRequired = !prop.isOptional();
+
+            if (isPath && isRequired) return 1; // path && required
+            if (isPath) return 2; // path
+            if (isRequired) return 3; // required
+            return 4; // everything else
+         };
+
+         return getPriority(a) - getPriority(b);
+      })
+   );
+
+   return inputSchema;
+}
+
 export function getMcpServer(hono: Hono<any>) {
    const features = getMcpFeatures(hono);
    const server = new McpServer();
 
    for (const feature of features) {
       if (feature.type === "tool") {
-         const inputSchema = infoValidationTargetsToSchema(
-            feature.info.validation
+         let inputSchema = infoValidationTargetsToSchema(
+            feature.tool.config.inputSchema ?? feature.info.validation
          );
+
+         if (inputSchema) {
+            inputSchema = sortInputSchema(inputSchema);
+         }
 
          const tool = new Tool(
             feature.tool.name,
             {
+               description: feature.info.openAPI?.summary,
                ...feature.tool.config,
                inputSchema,
             },
             async (params, c) => {
-               const request = featureInfoToRequest(feature, params);
+               const headers = {
+                  authorization:
+                     c.request.headers.get("authorization") ?? undefined,
+               };
+
+               const request = featureInfoToRequest(feature, params, {
+                  inputSchema,
+                  headers,
+               });
+               console.log("request", request);
                const response = await hono.request(request);
-               if (!response.ok) {
+               if (
+                  !response.ok &&
+                  !feature.tool.config.noErrorCodes?.includes(response.status)
+               ) {
                   let error = `HTTP ${response.status} ${response.statusText}`;
                   try {
                      const json = await response.json();

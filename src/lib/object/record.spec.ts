@@ -179,4 +179,17 @@ describe("record", () => {
          [key: string]: string;
       }>();
    });
+
+   test("maxProperties", () => {
+      const schema = record(string(), { maxProperties: 1 });
+      type Inferred = Static<typeof schema>;
+      //   ^?
+      expectTypeOf<Inferred>().toEqualTypeOf<{
+         [key: string]: string;
+      }>();
+
+      expect(schema.validate({}).valid).toBe(true);
+      expect(schema.validate({ a: "a" }).valid).toBe(true);
+      expect(schema.validate({ a: "a", b: "b" }).valid).toBe(false);
+   });
 });

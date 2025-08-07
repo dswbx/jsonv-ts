@@ -77,12 +77,9 @@ export const validator = <
       return value as Out;
    });
 
-   if (options?.skipOpenAPI) {
-      return middleware as any;
-   }
-
    return symbolize(middleware, {
       type: "parameters",
+      skip: options?.skipOpenAPI,
       value: {
          target,
          schema: schema as unknown as ObjectSchema,

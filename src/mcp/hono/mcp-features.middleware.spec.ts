@@ -1,6 +1,6 @@
 import { test, expect, describe } from "bun:test";
 import { Hono } from "hono";
-import { validator } from "../../hono";
+import { describeRoute, validator } from "../../hono";
 import { parse, s } from "../../lib";
 import {
    getMcpFeatures,
@@ -22,7 +22,10 @@ const call = async (tool: Tool, params: any) => {
 describe("mcp features", () => {
    test("payloadToValidationTargetPayload", async () => {
       const targets = {
-         query: s.object({ limit: s.number().optional() }),
+         query: s.object({
+            limit: s.number().optional(),
+            join: s.string().optional(),
+         }),
          params: s.object({ name: s.string() }),
       };
 
@@ -31,6 +34,10 @@ describe("mcp features", () => {
          type: "object",
          required: ["name"],
          properties: {
+            join: {
+               type: "string",
+               $target: "query",
+            },
             limit: {
                type: "number",
                $target: "query",
@@ -55,6 +62,7 @@ describe("mcp features", () => {
       expect(payloadToValidationTargetPayload(parsed, schema!)).toEqual({
          query: {
             limit: 1,
+            join: undefined,
          },
          params: {
             name: "foo",
@@ -78,7 +86,7 @@ describe("mcp features", () => {
             },
             path: "/",
             info: {
-               methods: ["GET"],
+               method: "GET",
             },
          },
       ]);
@@ -101,7 +109,21 @@ describe("mcp features", () => {
          },
          path: "/",
          info: {
-            methods: ["GET"],
+            method: "GET",
+            openAPI: {
+               responses: {},
+               operationId: "getIndex",
+               parameters: [
+                  {
+                     name: "num",
+                     in: "query",
+                     required: true,
+                     schema: {
+                        type: "number",
+                     },
+                  },
+               ],
+            },
             validation: {
                query: {
                   type: "object",
@@ -152,7 +174,7 @@ describe("mcp features", () => {
             },
             path: "/",
             info: {
-               methods: ["GET"],
+               method: "GET",
             },
          },
          {
@@ -163,7 +185,21 @@ describe("mcp features", () => {
             },
             path: "/another",
             info: {
-               methods: ["GET"],
+               method: "GET",
+               openAPI: {
+                  responses: {},
+                  operationId: "getAnother",
+                  parameters: [
+                     {
+                        name: "query",
+                        in: "query",
+                        required: true,
+                        schema: {
+                           type: "string",
+                        },
+                     },
+                  ],
+               },
                validation: {
                   query: {
                      type: "object",
@@ -185,7 +221,21 @@ describe("mcp features", () => {
             },
             path: "/path/:name",
             info: {
-               methods: ["GET"],
+               method: "GET",
+               openAPI: {
+                  responses: {},
+                  operationId: "getPathByName",
+                  parameters: [
+                     {
+                        name: "name",
+                        in: "path",
+                        required: true,
+                        schema: {
+                           type: "string",
+                        },
+                     },
+                  ],
+               },
                validation: {
                   param: {
                      type: "object",
@@ -336,6 +386,72 @@ describe("mcp features", () => {
          annotations: {
             destructiveHint: true,
          },
+      });
+
+      {
+         // if no title given, use openAPI summary
+         const hono = new Hono().get(
+            "/",
+            describeRoute({
+               summary: "MCP GET",
+            }),
+            mcpTool("get"),
+            (c) => c.json({ ok: true, message: "hi from get" })
+         );
+
+         const server = getMcpServer(hono);
+         expect(server.tools[0]?.toJSON()["description"]).toBe("MCP GET");
+      }
+   });
+
+   test("multiple tools, same path, different methods", async () => {
+      const hono = new Hono()
+         .get("/", mcpTool("get"), (c) =>
+            c.json({ ok: true, message: "hi from get" })
+         )
+         .post("/", mcpTool("post"), (c) =>
+            c.json({ ok: true, message: "hi from post" })
+         );
+
+      const server = getMcpServer(hono);
+      expect(server.tools.length).toBe(2);
+
+      const client = new McpClient({
+         url: "http://localhost/sse",
+         fetch: withMcp(hono).request,
+      });
+
+      expect(
+         await client.listTools().then((r) => r!.tools.map((t) => t.name))
+      ).toEqual(["get", "post"]);
+
+      expect(
+         await client.callTool({
+            name: "get",
+         })
+      ).toEqual({
+         content: [
+            {
+               type: "text",
+               text: '{"ok":true,"message":"hi from get"}',
+            },
+         ],
+      });
+
+      expect(
+         await client.callTool({
+            name: "post",
+            arguments: {
+               message: "hi from post",
+            },
+         })
+      ).toEqual({
+         content: [
+            {
+               type: "text",
+               text: '{"ok":true,"message":"hi from post"}',
+            },
+         ],
       });
    });
 });
