@@ -1,14 +1,13 @@
-<!-- TOC -->
+# Hono Integration
 
--  [Hono Integration](#hono-integration)
-   -  [Validator Middleware](#validator-middleware)
-   -  [OpenAPI generation](#openapi-generation)
+<!-- TOC depthfrom:2 updateonsave:true -->
+
+-  [Validator Middleware](#validator-middleware)
+-  [OpenAPI generation](#openapi-generation)
 
 <!-- /TOC -->
 
-## Hono Integration
-
-### Validator Middleware
+## Validator Middleware
 
 If you're using [Hono](https://hono.dev/) and want to validate the request targets (query, body, etc.), you can use the `validator` middleware.
 
@@ -46,7 +45,7 @@ const app = new Hono().get(
 );
 ```
 
-### OpenAPI generation
+## OpenAPI generation
 
 Every route that uses the `validator` middleware will be automatically added to the OpenAPI specification. Additionally, you can use the `describeRoute` function to add additional information to the route, or add routes that don't use any validations:
 

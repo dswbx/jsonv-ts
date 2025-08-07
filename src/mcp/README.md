@@ -1,14 +1,13 @@
-<!-- TOC -->
-
--  [MCP](#mcp)
-   -  [Hono MCP Middleware](#hono-mcp-middleware)
-   -  [MCP Client](#mcp-client)
-
-<!-- /TOC -->
-
-## MCP
+# MCP
 
 This package also includes a Web-spec compliant MCP server and client implementation. Not all features are supported yet, see [STATUS.md](./src/mcp/STATUS.md) for the current status.
+
+<!-- TOC depthfrom:2 updateonsave:true -->
+
+-  [Hono MCP Middleware](#hono-mcp-middleware)
+-  [MCP Client](#mcp-client)
+
+<!-- /TOC -->
 
 Here is a simple MCP server example:
 
@@ -73,7 +72,7 @@ console.log(data);
 // }
 ```
 
-### Hono MCP Middleware
+## Hono MCP Middleware
 
 You can use the MCP server with any Web-spec compliant web framework. If you choose to use it with Hono, there is a built-in middleware that can be used to handle MCP requests.
 
@@ -119,7 +118,7 @@ const app = new Hono().use(
 );
 ```
 
-### MCP Client
+## MCP Client
 
 You can use the MCP client to interact with MCP servers.
 
