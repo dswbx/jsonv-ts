@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import { McpServer } from "../server";
 import { Tool } from "../tool";
 import * as s from "jsonv-ts";
-import { mcp } from "../middleware";
+import { mcp } from "../hono/mcp.middleware";
 import { Resource } from "../resource";
 
 const test = new Tool(

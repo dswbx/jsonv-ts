@@ -18,7 +18,9 @@ export const openAPISpecs = <E extends Env>(
          for (const route of hono.routes) {
             if ($symbol in route.handler) {
                const routeHandler = route.handler[$symbol] as RouteHandler;
-               registerPath(specs, route, routeHandler);
+               if (!("skip" in routeHandler) || routeHandler.skip !== true) {
+                  registerPath(specs, route, routeHandler);
+               }
             }
          }
       }

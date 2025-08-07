@@ -1,5 +1,6 @@
 import * as s from "jsonv-ts";
 import { McpError } from "./error";
+import type { MaybePromise } from "./utils";
 
 const annotationSchema = s
    .object({
@@ -56,18 +57,21 @@ export type ToolHandler<
          : never
       : never,
    ctx: ToolHandlerCtx<Context>
-) => Promise<ToolResponse>;
+) => MaybePromise<ToolResponse>;
 
 export type ToolHandlerCtx<Context extends object = object> = {
-   text: (text: string) => any;
-   json: (json: object) => any;
+   text: (text: string) => ToolResponseText;
+   json: (json: object) => ToolResponseText;
    context: Context;
    request: Request;
 };
 
-export type ToolResponse = {
-   type: string;
+export type ToolResponseText = {
+   type: "text";
+   text: string;
 };
+
+export type ToolResponse = ToolResponseText;
 
 export class Tool<
    Name extends string = string,
@@ -81,7 +85,7 @@ export class Tool<
       readonly handler: (
          params: Params,
          ctx: ToolHandlerCtx<any>
-      ) => Promise<ToolResponse>
+      ) => MaybePromise<ToolResponse>
    ) {
       if (
          config &&

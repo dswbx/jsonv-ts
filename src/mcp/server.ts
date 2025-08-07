@@ -1,4 +1,4 @@
-import * as messages from "./messages";
+import { messages } from "./messages";
 import type { RpcMessage, TRpcId, TRpcRawRequest, TRpcResponse } from "./rpc";
 import * as s from "jsonv-ts";
 import { Tool, type ToolConfig, type ToolHandler } from "./tool";
@@ -9,6 +9,7 @@ import {
    type ResourceHandler,
    type TResourceUri,
 } from "./resource";
+import { McpClient, type McpClientConfig } from "./client";
 
 const serverInfoSchema = s.strictObject({
    name: s.string(),
@@ -30,6 +31,17 @@ export type LogLevel = keyof typeof logLevels;
 export const logLevelNames = Object.keys(logLevels) as LogLevel[];
 export const protocolVersion = "2025-06-18";
 
+export type McpAuthentication =
+   | {
+        type: "bearer";
+        token: string;
+     }
+   | {
+        type: "basic";
+        username: string;
+        password: string;
+     };
+
 export class McpServer<
    ServerContext extends object = {},
    Tools extends Tool<any, any, any | never>[] = Tool<any, any, any | never>[],
@@ -43,6 +55,7 @@ export class McpServer<
    protected readonly messages: RpcMessage<string, s.Schema>[] = [];
    readonly version = protocolVersion;
    protected currentId: TRpcId | undefined;
+   _id: string = crypto.randomUUID();
    protected logLevel: LogLevel = "warning";
    readonly history: Map<
       TRpcId,
@@ -51,6 +64,8 @@ export class McpServer<
          response?: TRpcResponse;
       }
    > = new Map();
+
+   protected authentication: McpAuthentication | undefined = undefined;
 
    constructor(
       readonly serverInfo: s.Static<typeof serverInfoSchema> = {
@@ -67,17 +82,24 @@ export class McpServer<
    }
 
    clone() {
-      return new McpServer(
+      const server = new McpServer(
          this.serverInfo,
          this.context,
          this.tools,
          this.resources
       );
+      server.setLogLevel(this.logLevel);
+      return server;
+   }
+
+   setAuthentication(authentication: McpAuthentication) {
+      this.authentication = authentication;
+      return this;
    }
 
    setLogLevel(level: LogLevel) {
-      this.console.info("set log level", level);
       this.logLevel = level;
+      this.console.info("set log level", level);
    }
 
    addTool<T extends Tool<any, any, any | never>>(tool: T) {
@@ -127,7 +149,9 @@ export class McpServer<
                   return (...args: any[]) => {
                      const current = logLevelNames.indexOf(logLevel);
                      const target = logLevelNames.indexOf(String(prop) as any);
-                     if (target > current) return;
+                     if (target > current) {
+                        return;
+                     }
 
                      console[logLevels[prop]](
                         `[MCP:${String(prop)}]`,
@@ -142,8 +166,40 @@ export class McpServer<
       };
    }
 
-   async handle(request: Request): Promise<Response> {
+   private getRequest(r: Request) {
+      const headers = new Headers(r.headers);
+
+      switch (this.authentication?.type) {
+         case "bearer":
+            if (!headers.get("Authorization")) {
+               headers.set(
+                  "Authorization",
+                  `Bearer ${this.authentication.token}`
+               );
+            }
+            break;
+      }
+
+      return new Request(r.url, {
+         method: r.method,
+         body: r.body,
+         headers,
+         cache: r.cache,
+         credentials: r.credentials,
+         keepalive: r.keepalive,
+         mode: r.mode,
+         signal: r.signal,
+      });
+   }
+
+   async handle(r: Request): Promise<Response> {
+      this.console.debug("request", {
+         method: r.method,
+         url: r.url,
+      });
+
       try {
+         const request = this.getRequest(r);
          const method = request.method;
 
          if (method === "POST") {
@@ -211,6 +267,24 @@ export class McpServer<
             status: 500,
          });
       }
+   }
+
+   getClient(opts?: McpClientConfig) {
+      return new McpClient({
+         url: "http://localhost",
+         fetch: async (url, init) => {
+            return this.handle(new Request(url, init));
+         },
+         ...opts,
+      });
+   }
+
+   toJSON() {
+      return {
+         serverInfo: this.serverInfo,
+         tools: this.tools.map((t) => t.toJSON()),
+         resources: this.resources.map((r) => r.toJSON()),
+      };
    }
 }
 

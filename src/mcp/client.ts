@@ -1,12 +1,12 @@
-import {
+import type {
    InitializeMessage,
-   LoggingMessage,
-   ResourcesReadMessage,
+   PingMessage,
+   ToolsListMessage,
+   ToolsCallMessage,
    ResourcesListMessage,
    ResourcesTemplatesListMessage,
-   type PingMessage,
-   type ToolsCallMessage,
-   type ToolsListMessage,
+   ResourcesReadMessage,
+   LoggingMessage,
 } from "./messages";
 import type {
    RpcMessage,
@@ -16,6 +16,7 @@ import type {
    TRpcResponse,
 } from "./rpc";
 import { protocolVersion } from "./server";
+import type { MaybePromise } from "./utils";
 
 export interface McpClientConfig {
    name?: string;
@@ -24,7 +25,10 @@ export interface McpClientConfig {
    url: string | URL;
    fetch?:
       | typeof fetch
-      | ((url: string | URL, options: RequestInit) => Promise<Response>);
+      | ((
+           url: string | RequestInfo | URL,
+           options?: RequestInit
+        ) => MaybePromise<Response>);
 }
 
 export class McpClient {
@@ -67,13 +71,18 @@ export class McpClient {
          this.sessionId = res.headers.get("Mcp-Session-Id") ?? undefined;
       }
 
-      const data = (await res.json()) as TRpcResponse<
-         TRpcMessageResult<Message>
-      >;
-      if (data.jsonrpc !== "2.0") {
-         throw new Error("Invalid JSON-RPC version");
+      try {
+         const data = (await res.json()) as TRpcResponse<
+            TRpcMessageResult<Message>
+         >;
+         if (data.jsonrpc !== "2.0") {
+            throw new Error("Invalid JSON-RPC version");
+         }
+         return data.result;
+      } catch (e) {
+         console.error(e);
+         throw e;
       }
-      return data.result;
    }
 
    async connect() {

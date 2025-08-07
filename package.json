@@ -3,7 +3,7 @@
    "main": "dist/lib/index.js",
    "module": "dist/lib/index.js",
    "types": "dist/lib/index.d.ts",
-   "version": "0.5.1",
+   "version": "0.5.2-rc.1",
    "sideEffects": false,
    "typesVersions": {
       "*": {
@@ -38,7 +38,8 @@
       "prepublishOnly": "bun run build",
       "release:patch": "bun run test && npm version patch && git push && git push --tags && npm publish",
       "release:minor": "bun run test && npm version minor && git push && git push --tags && npm publish",
-      "release:major": "bun run test && npm version major && git push && git push --tags && npm publish"
+      "release:major": "bun run test && npm version major && git push && git push --tags && npm publish",
+      "release:pre": "bun run test && npm version prerelease --preid rc --no-git-tag-version && npm publish --tag rc"
    },
    "devDependencies": {
       "@cfworker/json-schema": "^4.1.1",
@@ -91,7 +92,7 @@
       "format": "esm",
       "platform": "neutral",
       "metafile": true,
-      "minify": true,
+      "minify": false,
       "clean": true,
       "outDir": "dist"
    },

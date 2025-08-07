@@ -1,13 +1,39 @@
-export {
+import {
    InitializeMessage,
    InitializedNotificationMessage,
 } from "./initialize.message";
-export { PingMessage } from "./ping.message";
-export { ToolsListMessage, ToolsCallMessage } from "./tools.message";
-export {
+import { PingMessage } from "./ping.message";
+import { ToolsListMessage, ToolsCallMessage } from "./tools.message";
+import {
    ResourcesListMessage,
    ResourcesTemplatesListMessage,
    ResourcesReadMessage,
 } from "./resources.message";
-export { CompletionMessage } from "./completion.message";
-export { LoggingMessage } from "./logging.message";
+import { CompletionMessage } from "./completion.message";
+import { LoggingMessage } from "./logging.message";
+
+export const messages = {
+   InitializeMessage,
+   InitializedNotificationMessage,
+   PingMessage,
+   ToolsListMessage,
+   ToolsCallMessage,
+   ResourcesListMessage,
+   ResourcesTemplatesListMessage,
+   ResourcesReadMessage,
+   CompletionMessage,
+   LoggingMessage,
+};
+
+export {
+   InitializeMessage,
+   InitializedNotificationMessage,
+   PingMessage,
+   ToolsListMessage,
+   ToolsCallMessage,
+   ResourcesListMessage,
+   ResourcesTemplatesListMessage,
+   ResourcesReadMessage,
+   CompletionMessage,
+   LoggingMessage,
+};

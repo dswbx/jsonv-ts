@@ -24,7 +24,7 @@ export {
    type McpOptionsBase,
    type McpOptionsSetup,
    type McpOptionsStatic,
-} from "./middleware";
+} from "./hono/mcp.middleware";
 export {
    type RpcMessage,
    type RpcNotification,
@@ -33,3 +33,12 @@ export {
    type TRpcResponse,
 } from "./rpc";
 export { McpClient, type McpClientConfig } from "./client";
+export {
+   mcpTool,
+   mcpResource,
+   getMcpServer,
+   withMcp,
+   type McpFeatureTool,
+   type McpFeatureResource,
+   type McpFeatureWithRouteInfo,
+} from "./hono/mcp-features.middleware";

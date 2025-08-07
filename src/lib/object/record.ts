@@ -15,6 +15,9 @@ type RecordCoerced<AP extends Schema> = Simplify<
 
 export interface IRecordOptions extends ISchemaOptions {
    additionalProperties?: never;
+   maxProperties?: number;
+   minProperties?: number;
+   propertyNames?: Schema;
 }
 
 export class RecordSchema<

@@ -73,8 +73,8 @@ export type ResourceResponse = {
 );
 
 export class Resource<
-   Name extends string,
-   Uri extends TResourceUri,
+   Name extends string = string,
+   Uri extends TResourceUri = TResourceUri,
    Context extends object = {},
    Params = Uri extends TResourceUri ? ExtractParams<Uri> : never
 > {

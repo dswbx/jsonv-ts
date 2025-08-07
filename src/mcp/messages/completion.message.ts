@@ -1,7 +1,6 @@
 import * as s from "jsonv-ts";
 import { RpcMessage, type TRpcRequest } from "../rpc";
 import { McpError } from "../error";
-import { isPlainObject } from "../utils";
 
 // currently just a placeholder to prevent errors
 

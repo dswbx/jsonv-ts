@@ -7,6 +7,7 @@ export const $symbol = Symbol.for("jsonv");
 export type RouteHandler =
    | {
         type: "parameters";
+        skip?: boolean;
         value: {
            target: keyof ValidationTargets;
            schema: ObjectSchema;
