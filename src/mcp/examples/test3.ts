@@ -1,5 +1,4 @@
-import { McpServer } from "../server";
-import { stdioTransport } from "../transports/stdio-transport";
+import { McpServer, stdioTransport } from "jsonv-ts/mcp";
 
 const server = new McpServer()
    .tool("test", {}, async (params, c) => {
