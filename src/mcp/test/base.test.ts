@@ -69,9 +69,14 @@ describe("mcp base", () => {
          },
       };
 
-      const response = await server.handle(request.clone());
-      const data = await response.json();
-      expect(data).toEqual(expected);
+      const response = await server.handle({
+         jsonrpc: "2.0",
+         method: "resources/read",
+         params: {
+            uri: "greeting://John",
+         },
+      });
+      expect(response).toEqual(expected);
 
       {
          // test with hono

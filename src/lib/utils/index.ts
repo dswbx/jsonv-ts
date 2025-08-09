@@ -77,9 +77,9 @@ export function matchesPattern(pattern: string, value: string): boolean {
 }
 
 export function invariant(
-   condition: boolean,
+   condition: unknown,
    message: string,
-   value: unknown
+   value?: unknown
 ): asserts condition {
    if (!condition) {
       throw new InvariantError(message, value);

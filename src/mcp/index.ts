@@ -42,3 +42,11 @@ export {
    type McpFeatureResource,
    type McpFeatureWithRouteInfo,
 } from "./hono/mcp-features.middleware";
+export {
+   streamableHttpTransport,
+   type StreamableHttpTransportOptions,
+} from "./transports/streamable-http-transport";
+export {
+   stdioTransport,
+   type StdioTransportOptions,
+} from "./transports/stdio-transport";

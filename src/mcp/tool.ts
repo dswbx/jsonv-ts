@@ -66,7 +66,7 @@ export type ToolHandlerCtx<Context extends object = object> = {
    text: (text: string) => ToolResponseText;
    json: (json: object) => ToolResponseText;
    context: Context;
-   request: Request;
+   raw?: unknown;
 };
 
 export type ToolResponseText = {
@@ -102,7 +102,7 @@ export class Tool<
    async call(
       params: Params,
       context: object,
-      request: Request
+      raw?: unknown
    ): Promise<ToolResponse> {
       if (this.config?.inputSchema) {
          const result = this.config.inputSchema.validate(params);
@@ -116,7 +116,7 @@ export class Tool<
 
       return await this.handler(params, {
          context,
-         request,
+         raw,
          text: (text) => ({
             type: "text",
             text,

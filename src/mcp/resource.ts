@@ -53,7 +53,7 @@ export type ResourceHandlerCtx<Context extends object = object> = {
    binary: (binary: Uint8Array, opts?: ResourceResponse) => ResourceResponse;
    context: Context;
    uri: TResourceUri;
-   request: Request;
+   raw?: unknown;
 };
 
 export type ResourceHandler<
@@ -136,14 +136,14 @@ export class Resource<
    async call(
       uri: TResourceUri,
       context: Context,
-      request: Request
+      raw?: unknown
    ): Promise<ResourceResponse> {
       const params = extractParamValues(this.uri, uri) as Params;
       return await this.handler(
          {
             context,
             uri,
-            request,
+            raw,
             text: (text: string, opts?: ResourceResponse) => ({
                mimeType: "text/plain",
                text: String(text),

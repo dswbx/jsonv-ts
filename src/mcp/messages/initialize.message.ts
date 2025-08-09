@@ -29,6 +29,7 @@ export class InitializedNotificationMessage extends RpcNotification {
    method = "notifications/initialized";
 
    override async handle(message: TRpcRequest) {
+      //return this.formatRespond(message, {});
       //console.log("initialized", message);
    }
 }

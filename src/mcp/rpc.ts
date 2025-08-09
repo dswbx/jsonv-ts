@@ -58,6 +58,15 @@ export abstract class RpcMessage<
 
    constructor(protected readonly server: McpServer) {}
 
+   static isValidMessage(message: unknown): message is TRpcRawRequest {
+      try {
+         const baseResult = rpcBase.validate(structuredClone(message));
+         return baseResult.valid;
+      } catch (e) {
+         return false;
+      }
+   }
+
    is(message: TRpcRawRequest) {
       if (message.jsonrpc !== "2.0") {
          throw new McpError(
@@ -84,7 +93,7 @@ export abstract class RpcMessage<
 
    abstract respond(
       message: TRpcRequest | TRpcRawRequest,
-      request: Request
+      raw?: unknown
    ): Promise<TRpcResponse>;
 
    protected formatRespond<Result = object>(

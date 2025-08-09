@@ -1,5 +1,10 @@
 import { messages } from "./messages";
-import type { RpcMessage, TRpcId, TRpcRawRequest, TRpcResponse } from "./rpc";
+import {
+   RpcMessage,
+   type TRpcId,
+   type TRpcRawRequest,
+   type TRpcResponse,
+} from "./rpc";
 import * as s from "jsonv-ts";
 import { Tool, type ToolConfig, type ToolHandler } from "./tool";
 import { McpError } from "./error";
@@ -9,7 +14,6 @@ import {
    type ResourceHandler,
    type TResourceUri,
 } from "./resource";
-import { McpClient, type McpClientConfig } from "./client";
 
 const serverInfoSchema = s.strictObject({
    name: s.string(),
@@ -30,17 +34,6 @@ export const logLevels = {
 export type LogLevel = keyof typeof logLevels;
 export const logLevelNames = Object.keys(logLevels) as LogLevel[];
 export const protocolVersion = "2025-06-18";
-
-export type McpAuthentication =
-   | {
-        type: "bearer";
-        token: string;
-     }
-   | {
-        type: "basic";
-        username: string;
-        password: string;
-     };
 
 export class McpServer<
    ServerContext extends object = {},
@@ -64,8 +57,7 @@ export class McpServer<
          response?: TRpcResponse;
       }
    > = new Map();
-
-   protected authentication: McpAuthentication | undefined = undefined;
+   protected onNotificationListener?: (message: TRpcRawRequest) => void;
 
    constructor(
       readonly serverInfo: s.Static<typeof serverInfoSchema> = {
@@ -81,6 +73,11 @@ export class McpServer<
       );
    }
 
+   onNotification(handler: (message: TRpcRawRequest) => void) {
+      this.onNotificationListener = handler;
+      return this;
+   }
+
    clone() {
       const server = new McpServer(
          this.serverInfo,
@@ -90,11 +87,6 @@ export class McpServer<
       );
       server.setLogLevel(this.logLevel);
       return server;
-   }
-
-   setAuthentication(authentication: McpAuthentication) {
-      this.authentication = authentication;
-      return this;
    }
 
    setLogLevel(level: LogLevel) {
@@ -132,15 +124,8 @@ export class McpServer<
    }
 
    get console() {
-      const _args = (...args: any[]) =>
-         args.map((arg) => {
-            if (typeof arg === "object") {
-               return JSON.parse(JSON.stringify(arg, null, 2));
-            }
-            return arg;
-         });
-
       const logLevel = this.logLevel;
+      const listener = this.onNotificationListener;
       return new Proxy(
          {},
          {
@@ -153,10 +138,16 @@ export class McpServer<
                         return;
                      }
 
-                     console[logLevels[prop]](
-                        `[MCP:${String(prop)}]`,
-                        ..._args(...args)
-                     );
+                     if (listener) {
+                        listener({
+                           jsonrpc: "2.0",
+                           method: "notification/message",
+                           params: {
+                              data: args,
+                              level: logLevels[prop],
+                           },
+                        });
+                     }
                   };
                }
             },
@@ -166,116 +157,49 @@ export class McpServer<
       };
    }
 
-   private getRequest(r: Request) {
-      const headers = new Headers(r.headers);
+   async handle(payload: TRpcRawRequest, raw?: unknown): Promise<TRpcResponse> {
+      this.console.debug("payload", payload);
 
-      switch (this.authentication?.type) {
-         case "bearer":
-            if (!headers.get("Authorization")) {
-               headers.set(
-                  "Authorization",
-                  `Bearer ${this.authentication.token}`
-               );
-            }
-            break;
-      }
-
-      return new Request(r.url, {
-         method: r.method,
-         body: r.body,
-         headers,
-         cache: r.cache,
-         credentials: r.credentials,
-         keepalive: r.keepalive,
-         mode: r.mode,
-         signal: r.signal,
-      });
-   }
-
-   async handle(r: Request): Promise<Response> {
-      this.console.debug("request", {
-         method: r.method,
-         url: r.url,
-      });
-
-      try {
-         const request = this.getRequest(r);
-         const method = request.method;
-
-         if (method === "POST") {
-            let body: TRpcRawRequest | undefined;
-            try {
-               body = (await request.json()) as TRpcRawRequest;
-               this.currentId = body.id;
-            } catch (e) {
-               this.console.error(e);
-               throw new McpError("ParseError", {
-                  error: String(e),
-               });
-            }
-
-            if (this.currentId) {
-               if (this.history.has(this.currentId)) {
-                  this.console.warning("duplicate request", this.currentId);
-                  throw new McpError("InvalidRequest", {
-                     error: "Duplicate request",
-                  });
-               } else {
-                  this.history.set(this.currentId, {
-                     request: body,
-                  });
-               }
-            }
-
-            this.console.info("message", body);
-
-            const message = this.messages.find((m) => m.is(body));
-            if (message) {
-               const result = await message.respond(body, request);
-               this.console.info("result", result);
-
-               if (result === null) {
-                  return new Response(null, { status: 202 });
-               }
-
-               if (this.currentId) {
-                  this.history.set(this.currentId, {
-                     request: body,
-                     response: result,
-                  });
-               }
-
-               return Response.json(result, { status: 200 });
-            }
-
-            throw new McpError("MethodNotFound", {
-               method: body.method,
-               params: body.params,
-            });
-         }
-
-         return new Response("Method not allowed", { status: 405 });
-      } catch (e) {
-         this.console.error(e);
-         if (e instanceof McpError) {
-            return Response.json(e.setId(this.currentId).toJSON(), {
-               status: e.statusCode,
-            });
-         }
-
-         return Response.json(new McpError("InternalError").toJSON(), {
-            status: 500,
+      // @todo: parse message
+      if (!RpcMessage.isValidMessage(payload)) {
+         throw new McpError("ParseError", {
+            payload,
          });
       }
-   }
 
-   getClient(opts?: McpClientConfig) {
-      return new McpClient({
-         url: "http://localhost",
-         fetch: async (url, init) => {
-            return this.handle(new Request(url, init));
-         },
-         ...opts,
+      this.currentId = payload.id;
+
+      if (this.currentId) {
+         if (this.history.has(this.currentId)) {
+            this.console.warning("duplicate request", this.currentId);
+            throw new McpError("InvalidRequest", {
+               error: "Duplicate request",
+            });
+         } else {
+            this.history.set(this.currentId, {
+               request: payload,
+            });
+         }
+      }
+
+      const message = this.messages.find((m) => m.is(payload));
+      if (message) {
+         const result = await message.respond(payload, raw);
+         this.console.info("result", result);
+
+         if (this.currentId) {
+            this.history.set(this.currentId, {
+               request: payload,
+               response: result,
+            });
+         }
+
+         return result;
+      }
+
+      throw new McpError("MethodNotFound", {
+         method: payload.method,
+         params: payload.params,
       });
    }
 

@@ -292,7 +292,9 @@ export function getMcpServer(hono: Hono<any>) {
             async (params, c) => {
                const headers = {
                   authorization:
-                     c.request.headers.get("authorization") ?? undefined,
+                     c.raw instanceof Request
+                        ? c.raw.headers.get("authorization") ?? undefined
+                        : undefined,
                };
 
                const request = featureInfoToRequest(feature, params, {
