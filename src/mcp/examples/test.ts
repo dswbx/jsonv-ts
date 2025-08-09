@@ -1,5 +1,4 @@
 import { Hono } from "hono";
-import { McpServer } from "../server";
 import { Tool } from "../tool";
 import * as s from "jsonv-ts";
 import { mcp } from "../hono/mcp.middleware";
@@ -116,42 +115,6 @@ const app = new Hono().use(
       },
    })
 );
-
-const srv = new McpServer(
-   {
-      name: "mcp-test",
-      version: "0.0.1",
-   },
-   {
-      foo: "bar",
-   }
-).tool(
-   "test",
-   {
-      inputSchema: s.object({
-         name: s.string(),
-      }),
-   },
-   async (params, c) => {
-      return c.text(`Hello, ${c.context.foo}! ${params.name}`);
-   }
-);
-
-app.all("/mcp_test", async (c) => {
-   const server = new McpServer(
-      {
-         name: "mcp-test",
-         version: "0.0.1",
-      },
-      {
-         foo: "bar1",
-      }
-   );
-   server.addTool(test);
-   server.addTool(test2);
-   server.addTool(context);
-   return await server.handle(c.req.raw);
-});
 
 export default {
    fetch: app.fetch,

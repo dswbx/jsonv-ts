@@ -26,21 +26,15 @@ server.resource("greeting", "greeting://{name}", async (c, { name }) => {
    });
 });
 
-// make a request to the server
-const request = new Request("http://localhost", {
-   method: "POST",
-   body: JSON.stringify({
-      jsonrpc: "2.0",
-      method: "resources/read",
-      params: {
-         uri: "greeting://John",
-      },
-   }),
+// send a message to the server
+const response = await server.handle({
+   jsonrpc: "2.0",
+   method: "resources/read",
+   params: {
+      uri: "greeting://John",
+   },
 });
-
-const response = await server.handle(request);
-const data = await response.json();
-console.log(data);
+console.log(response);
 // {
 //   jsonrpc: "2.0",
 //   result: {

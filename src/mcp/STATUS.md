@@ -26,8 +26,8 @@ Based on: https://modelcontextprotocol.io/specification/2025-06-18
 
 ### Transports
 
--  [ ] ~~STDIO~~
--  [x] HTTP
+-  [x] STDIO
+-  [x] Streamable HTTP
 -  [ ] Streamable HTTP (stateful)
 -  [ ] WebSocket
 
@@ -88,7 +88,7 @@ Based on: https://modelcontextprotocol.io/specification/2025-06-18
 
 -  [x] notifications/initialized
 -  [ ] notifications/cancelled
--  [ ] notifications/message
+-  [x] notifications/message
 -  [ ] notifications/progress
 -  [ ] notifications/prompts/list_changed
 -  [ ] notifications/resources/list_changed

@@ -7,6 +7,7 @@ import {
 } from "../server";
 import type { Tool } from "../tool";
 import type { Resource } from "../resource";
+import { streamableHttpTransport } from "../transports/streamable-http-transport";
 
 export type McpServerInit =
    | {
@@ -107,7 +108,9 @@ export const mcp = (opts: McpOptions): MiddlewareHandler => {
             }
          }
 
-         const res = await server.handle(c.req.raw);
+         const transport = streamableHttpTransport(server);
+         const res = await transport(c.req.raw);
+
          const headers = new Headers(res.headers);
          if (opts?.sessionsEnabled) {
             headers.set("Mcp-Session-Id", sessionId!);

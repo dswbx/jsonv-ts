@@ -56,7 +56,7 @@ export {
    parse,
    InvalidSchemaError,
 } from "./validation/parse";
-export type { JSONSchemaDefinition } from "./types";
+export type { JSONSchemaDefinition, JSONSchema } from "./types";
 export { registerFormat, getFormats } from "./validation/format";
 
 import { object, strictObject, partialObject } from "./object/object";
