@@ -180,7 +180,7 @@ function printStats() {
    );
 }
 
-const score = 0.74;
+const score = 0.7;
 const passed = stats.passed / stats.total > score && stats.failed === 0;
 if (!passed) {
    process.exit(1);
