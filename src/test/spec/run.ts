@@ -183,5 +183,6 @@ function printStats() {
 const score = 0.74;
 const passed = stats.passed / stats.total > score && stats.failed === 0;
 if (!passed) {
-   throw new Error("Test suite failed");
+   process.exit(1);
 }
+process.exit(0);
