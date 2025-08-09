@@ -86,6 +86,7 @@ export class McpServer<
          this.resources
       );
       server.setLogLevel(this.logLevel);
+      server.onNotificationListener = this.onNotificationListener;
       return server;
    }
 
@@ -158,49 +159,59 @@ export class McpServer<
    }
 
    async handle(payload: TRpcRawRequest, raw?: unknown): Promise<TRpcResponse> {
-      this.console.debug("payload", payload);
+      try {
+         this.console.debug("payload", payload);
 
-      // @todo: parse message
-      if (!RpcMessage.isValidMessage(payload)) {
-         throw new McpError("ParseError", {
-            payload,
-         });
-      }
-
-      this.currentId = payload.id;
-
-      if (this.currentId) {
-         if (this.history.has(this.currentId)) {
-            this.console.warning("duplicate request", this.currentId);
-            throw new McpError("InvalidRequest", {
-               error: "Duplicate request",
-            });
-         } else {
-            this.history.set(this.currentId, {
-               request: payload,
+         // @todo: parse message
+         if (!RpcMessage.isValidMessage(payload)) {
+            throw new McpError("ParseError", {
+               payload,
             });
          }
-      }
 
-      const message = this.messages.find((m) => m.is(payload));
-      if (message) {
-         const result = await message.respond(payload, raw);
-         this.console.info("result", result);
+         this.currentId = payload.id;
 
          if (this.currentId) {
-            this.history.set(this.currentId, {
-               request: payload,
-               response: result,
-            });
+            if (this.history.has(this.currentId)) {
+               this.console.warning("duplicate request", this.currentId);
+               throw new McpError("InvalidRequest", {
+                  error: "Duplicate request",
+               });
+            } else {
+               this.history.set(this.currentId, {
+                  request: payload,
+               });
+            }
          }
 
-         return result;
-      }
+         const message = this.messages.find((m) => m.is(payload));
+         if (message) {
+            const result = await message.respond(payload, raw);
+            this.console.info("result", result);
 
-      throw new McpError("MethodNotFound", {
-         method: payload.method,
-         params: payload.params,
-      });
+            if (this.currentId) {
+               this.history.set(this.currentId, {
+                  request: payload,
+                  response: result,
+               });
+            }
+
+            return result;
+         }
+
+         throw new McpError("MethodNotFound", {
+            method: payload.method,
+            params: payload.params,
+         });
+      } catch (e) {
+         if (e instanceof McpError) {
+            this.console.error(e.toJSON());
+            throw e;
+         }
+
+         this.console.error(e);
+         throw new McpError("InternalError", { error: String(e) });
+      }
    }
 
    toJSON() {
