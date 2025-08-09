@@ -34,7 +34,7 @@
       "watch": "bun run build && tsup --watch",
       "build:types": "tsc --emitDeclarationOnly",
       "benchmark": "bun run src/test/validation/benchmark.ts",
-      "fetch:spec": "npx giget gh:json-schema-org/JSON-Schema-Test-Suite/tests src/test/spec/lib",
+      "fetch:spec": "rm -rf src/test/spec/lib && npx giget gh:json-schema-org/JSON-Schema-Test-Suite/tests src/test/spec/lib",
       "prepublishOnly": "bun run build",
       "release:patch": "bun run test && npm version patch && git push && git push --tags && npm publish",
       "release:minor": "bun run test && npm version minor && git push && git push --tags && npm publish",
