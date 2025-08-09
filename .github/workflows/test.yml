@@ -32,4 +32,4 @@ jobs:
            run: bun run test:unit
 
          - name: Run spec tests
-           run: bun run test:spec
+           run: bun run fetch:spec && bun run test:spec
