@@ -1,5 +1,10 @@
 import { test, expect, describe } from "bun:test";
-import { format as $format } from "./format";
+import {
+   format as $format,
+   getFormats,
+   registerFormat,
+   unregisterFormat,
+} from "./format";
 
 const format = (format: string, value: string) => {
    // @ts-ignore
@@ -44,5 +49,19 @@ describe("format", () => {
          ["~test@example.com", true],
          //['"joe bloggs"@example.com', true],
       ]);
+   });
+
+   test("register format", () => {
+      const count = getFormats().length;
+      registerFormat("identifier", (input) =>
+         /^(?:[a-zA-Z_$][\\w$]*)(?:[a-zA-Z_$][\\w$]*)*$/.test(input)
+      );
+      expect(getFormats().length).toBe(count + 1);
+
+      expect(format("identifier", "abc").valid).toBe(true);
+      expect(format("identifier", "a bc").valid).toBe(false);
+
+      unregisterFormat("identifier");
+      expect(getFormats().length).toBe(count);
    });
 });
