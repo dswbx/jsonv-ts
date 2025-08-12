@@ -288,6 +288,18 @@ describe("mcp features", () => {
                   message: `path: ${name}`,
                });
             }
+         )
+         .post(
+            "/mixed",
+            mcpTool("mixed"),
+            validator("query", s.object({ entity: s.string() })),
+            validator("json", s.object({})), // intentionally empty
+            async (c) =>
+               c.json({
+                  ok: true,
+                  message: `query: ${c.req.valid("query").entity}`,
+                  json: c.req.valid("json"),
+               })
          );
 
       const server = getMcpServer(hono);
@@ -298,11 +310,11 @@ describe("mcp features", () => {
          //fetch: new Hono().use(mcp(server)).request,
          fetch: withMcp(hono).request,
       });
-      expect(server.tools.length).toBe(3);
+      expect(server.tools.length).toBe(4);
 
       expect(
          await client.listTools().then((r) => r!.tools.map((t) => t.name))
-      ).toEqual(["get", "another", "path"]);
+      ).toEqual(["get", "another", "path", "mixed"]);
 
       expect(
          await client.callTool({
@@ -358,6 +370,20 @@ describe("mcp features", () => {
             },
          ],
          isError: true,
+      });
+
+      expect(
+         await client.callTool({
+            name: "mixed",
+            arguments: { entity: "entity", json: { name: "name" } },
+         })
+      ).toEqual({
+         content: [
+            {
+               type: "text",
+               text: '{"ok":true,"message":"query: entity","json":{"name":"name"}}',
+            },
+         ],
       });
    });
 

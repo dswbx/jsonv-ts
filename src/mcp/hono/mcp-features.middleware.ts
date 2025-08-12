@@ -100,7 +100,16 @@ export function infoValidationTargetsToSchema(
 
    // if a target is not an object shape, we need to wrap it in a param
    for (const [target, schema] of Object.entries(validation)) {
-      if (schema && !schema.type) {
+      if (!schema) continue;
+
+      if (
+         !schema.type ||
+         (schema.type === "object" &&
+            Object.keys(schema.properties || {}).length === 0)
+      ) {
+         // @ts-ignore
+         schema.$synthetic = true;
+
          validation[target] = s.object({
             [target]: schema,
          });
@@ -143,7 +152,15 @@ export function payloadToValidationTargetPayload(
       const target = v.$target;
       invariant(target, "target must be a string", v);
       result[target] = result[target] ?? {};
-      result[target][k] = payload[k];
+
+      // payload might have a `synthetic` key prop, e.g. json and form
+      // that is if they accept any properties (see infoValidationTargetsToSchema)
+      // @ts-ignore
+      if (v.$synthetic) {
+         result[target] = Object.assign({}, result[target], payload[k]);
+      } else {
+         result[target][k] = payload[k];
+      }
    }
 
    return result;
