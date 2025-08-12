@@ -2,6 +2,7 @@ import { McpError } from "../error";
 import type { McpServer } from "../server";
 
 export type StreamableHttpTransportOptions = {
+   _init?: RequestInit;
    authentication?:
       | {
            type: "bearer";
@@ -49,6 +50,7 @@ export function streamableHttpTransport(
          keepalive: r.keepalive,
          mode: r.mode,
          signal: r.signal,
+         ...opts?._init,
       });
    };
 

@@ -30,6 +30,7 @@ export interface McpOptionsBase {
    endpoint?: {
       transport?: "streamableHttp";
       path: `/${string}`;
+      _init?: RequestInit;
    };
 }
 
@@ -108,7 +109,9 @@ export const mcp = (opts: McpOptions): MiddlewareHandler => {
             }
          }
 
-         const transport = streamableHttpTransport(server);
+         const transport = streamableHttpTransport(server, {
+            _init: opts?.endpoint?._init,
+         });
          const res = await transport(c.req.raw);
 
          const headers = new Headers(res.headers);
