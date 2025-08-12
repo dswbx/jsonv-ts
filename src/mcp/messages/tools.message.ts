@@ -47,6 +47,12 @@ export class ToolsCallMessage extends RpcMessage {
             content: Array.isArray(result) ? result : [result],
          });
       } catch (e) {
+         if (e instanceof McpError) {
+            this.server.console.error(e.toJSON());
+         } else {
+            this.server.console.error(e);
+         }
+
          return this.formatRespond(message, {
             content: [
                {

@@ -107,10 +107,14 @@ export class Tool<
       if (this.config?.inputSchema) {
          const result = this.config.inputSchema.validate(params);
          if (!result.valid) {
-            throw new McpError("InvalidParams", {
-               errors: result.errors,
-               given: params,
-            });
+            throw new McpError(
+               "InvalidParams",
+               {
+                  errors: result.errors,
+                  given: params,
+               },
+               "Invalid tool parameters"
+            );
          }
       }
 
