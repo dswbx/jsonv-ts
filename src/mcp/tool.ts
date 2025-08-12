@@ -110,8 +110,10 @@ export class Tool<
             throw new McpError(
                "InvalidParams",
                {
+                  method: this.name,
                   errors: result.errors,
                   given: params,
+                  schema: this.config.inputSchema.toJSON(),
                },
                "Invalid tool parameters"
             );
