@@ -186,7 +186,8 @@ export const minLength = (
    opts: Opts = {}
 ) => {
    if (!isString(value)) return valid();
-   const length = [...normalize(value)].length;
+   const normalizedValue = normalize(value);
+   const length = [...(normalizedValue as string)].length;
    if (length >= minLength) return valid();
    return error(
       opts,
@@ -202,7 +203,8 @@ export const maxLength = (
    opts: Opts = {}
 ) => {
    if (!isString(value)) return valid();
-   const length = [...normalize(value)].length;
+   const normalizedValue = normalize(value);
+   const length = [...(normalizedValue as string)].length;
    if (length <= maxLength) return valid();
    return error(
       opts,

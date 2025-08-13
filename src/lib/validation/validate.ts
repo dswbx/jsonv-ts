@@ -86,6 +86,7 @@ export type ValidationOptions = {
    ignoreUnsupported?: boolean;
    resolver?: Resolver;
    depth?: number;
+   skipClone?: boolean;
 };
 type CtxValidationOptions = Required<ValidationOptions>;
 
@@ -106,17 +107,23 @@ export function validate(
       errors: opts.errors || [],
       shortCircuit: opts.shortCircuit || false,
       ignoreUnsupported: opts.ignoreUnsupported || false,
-      resolver: opts.resolver || new Resolver(s),
+      resolver: opts.resolver || s.getResolver?.() || new Resolver(s),
       depth: opts.depth ? opts.depth + 1 : 0,
+      skipClone: opts.skipClone || false,
    };
-   const value = structuredClone(
-      opts?.coerce && s.coerce
-         ? s.coerce(_value, {
-              resolver: ctx.resolver,
-              depth: ctx.depth,
-           })
-         : _value
-   );
+
+   let value: unknown;
+   if (opts?.coerce && s.coerce) {
+      // only clone when we're actually going to coerce (mutate) the value
+      const coercedValue = s.coerce(_value, {
+         resolver: ctx.resolver,
+         depth: ctx.depth,
+      });
+      value = ctx.skipClone ? coercedValue : structuredClone(coercedValue);
+   } else {
+      // for read-only validation, no need to clone unless explicitly required
+      value = ctx.skipClone ? _value : structuredClone(_value);
+   }
 
    if (opts.ignoreUnsupported !== true) {
       // @todo: $ref
@@ -139,19 +146,49 @@ export function validate(
          ctx.errors.push(...result.errors);
       }
    } else {
-      for (const [keyword, validator] of Object.entries(keywords)) {
-         if (s[keyword] === undefined) continue;
-         // @todo: not entirely sure about this
-         if (value === undefined) continue;
-         const result = validator(s, value, {
-            ...ctx,
-            errors: [],
-         });
-         if (!result.valid) {
-            if (opts.shortCircuit) {
-               return result;
+      // create a reusable context object to avoid spreading on every keyword
+      const keywordCtx = {
+         keywordPath: ctx.keywordPath,
+         instancePath: ctx.instancePath,
+         coerce: ctx.coerce,
+         errors: [] as any[],
+         shortCircuit: ctx.shortCircuit,
+         ignoreUnsupported: ctx.ignoreUnsupported,
+         resolver: ctx.resolver,
+         depth: ctx.depth,
+      };
+
+      // only check keywords that exist on the schema for better performance
+      for (const keyword in s) {
+         if (keyword === "type" && s.type !== undefined) {
+            // skip type checking if value is undefined for certain cases
+            if (value !== undefined) {
+               const validator = keywords[keyword];
+               if (validator) {
+                  keywordCtx.errors = []; // reset errors for this keyword
+                  const result = validator(s, value, keywordCtx);
+                  if (!result.valid) {
+                     if (opts.shortCircuit) {
+                        return result;
+                     }
+                     ctx.errors.push(...result.errors);
+                  }
+               }
             }
-            ctx.errors.push(...result.errors);
+         } else if (keyword in keywords && s[keyword] !== undefined) {
+            // @todo: not entirely sure about this
+            if (value === undefined) continue;
+            const validator = keywords[keyword];
+            if (validator) {
+               keywordCtx.errors = []; // reset errors for this keyword
+               const result = validator(s, value, keywordCtx);
+               if (!result.valid) {
+                  if (opts.shortCircuit) {
+                     return result;
+                  }
+                  ctx.errors.push(...result.errors);
+               }
+            }
          }
       }
    }

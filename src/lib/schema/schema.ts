@@ -72,6 +72,8 @@ export class Schema<
       overrides?: ISchemaFn;
    };
 
+   protected _resolver?: Resolver;
+
    readonly type: string | undefined;
    $id?: string;
    $ref?: string;
@@ -162,8 +164,9 @@ export class Schema<
          errors: opts?.errors || [],
          shortCircuit: opts?.shortCircuit || false,
          ignoreUnsupported: opts?.ignoreUnsupported || false,
-         resolver: opts?.resolver || new Resolver(this),
+         resolver: opts?.resolver || this.getResolver(),
          depth: opts?.depth ? opts.depth + 1 : 0,
+         skipClone: opts?.skipClone ?? true,
       };
 
       const customValidate = this[schemaSymbol].raw?.validate;
@@ -180,7 +183,7 @@ export class Schema<
    coerce(value: unknown, opts?: CoercionOptions) {
       const ctx: Required<CoercionOptions> = {
          ...opts,
-         resolver: opts?.resolver || new Resolver(this),
+         resolver: opts?.resolver || this.getResolver(),
          depth: opts?.depth ? opts.depth + 1 : 0,
          dropUnknown: opts?.dropUnknown || false,
       };
@@ -214,6 +217,13 @@ export class Schema<
 
    isOptional(): boolean {
       return this[schemaSymbol].optional;
+   }
+
+   getResolver(): Resolver {
+      if (!this._resolver) {
+         this._resolver = new Resolver(this);
+      }
+      return this._resolver;
    }
 
    children(opts?: WalkOptions): Node[] {
@@ -253,7 +263,7 @@ export class Schema<
    // cannot force type this one
    // otherwise ISchemaOptions must be widened to include any
    toJSON(): JSONSchemaDefinition {
-      const { toJSON, "~standard": _, ...rest } = this;
+      const { toJSON, "~standard": _, _resolver, ...rest } = this;
       return JSON.parse(JSON.stringify(rest));
    }
 }
@@ -308,16 +318,23 @@ export function createSchema<
    })(o, overrides) as any;
 }
 
+class BooleanSchema<B extends boolean> extends Schema<
+   ISchemaOptions,
+   B extends true ? unknown : never
+> {
+   constructor(private bool: B) {
+      super();
+   }
+
+   override toJSON() {
+      return this.bool as any;
+   }
+
+   override validate(value: unknown, opts?: ValidationOptions) {
+      return this.bool ? valid() : error(opts, "", "Always fails", value);
+   }
+}
+
 export function booleanSchema<B extends boolean>(bool: B) {
-   return new (class extends Schema<
-      ISchemaOptions,
-      B extends true ? unknown : never
-   > {
-      override toJSON() {
-         return bool as any;
-      }
-      override validate(value: unknown, opts?: ValidationOptions) {
-         return bool ? valid() : error(opts, "", "Always fails", value);
-      }
-   })();
+   return new BooleanSchema(bool);
 }
