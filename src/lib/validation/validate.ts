@@ -109,14 +109,13 @@ export function validate(
       resolver: opts.resolver || new Resolver(s),
       depth: opts.depth ? opts.depth + 1 : 0,
    };
-   const value = structuredClone(
+   const value =
       opts?.coerce && s.coerce
          ? s.coerce(_value, {
               resolver: ctx.resolver,
               depth: ctx.depth,
            })
-         : _value
-   );
+         : _value;
 
    if (opts.ignoreUnsupported !== true) {
       // @todo: $ref
@@ -143,10 +142,12 @@ export function validate(
          if (s[keyword] === undefined) continue;
          // @todo: not entirely sure about this
          if (value === undefined) continue;
+
          const result = validator(s, value, {
             ...ctx,
             errors: [],
          });
+
          if (!result.valid) {
             if (opts.shortCircuit) {
                return result;
