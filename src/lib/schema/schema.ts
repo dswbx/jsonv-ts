@@ -11,6 +11,7 @@ import {
    type ValidationResult,
 } from "../validation/validate";
 import { schemaSymbol } from "../shared";
+import { safeStructuredClone } from "../utils";
 
 export { schemaSymbol as symbol };
 
@@ -172,6 +173,7 @@ export class Schema<
       const customValidate = this[schemaSymbol].raw?.validate;
       if (customValidate !== undefined) {
          const result = customValidate(value, ctx);
+
          if (!result.valid) {
             return result;
          }
@@ -238,16 +240,37 @@ export class Schema<
    *walk({
       instancePath = [],
       keywordPath = [],
+      data: _data,
+      maxDepth = Number.POSITIVE_INFINITY,
       ...opts
    }: WalkOptions = {}): Generator<Node<Schema>> {
+      const data =
+         instancePath.length === 0 && _data
+            ? safeStructuredClone(_data)
+            : _data;
+
       if (opts.includeSelf !== false) {
-         yield new Node(this, { instancePath, keywordPath, ...opts });
+         yield new Node(this, {
+            instancePath,
+            keywordPath,
+            data,
+            ...opts,
+         });
+      }
+
+      // Check if we've reached the maximum depth before processing children
+      // Depth is based on instancePath length (data nesting level)
+      if (instancePath.length >= maxDepth) {
+         return;
       }
 
       for (const child of this.children(opts)) {
+         const childInstancePath = [...instancePath, ...child.instancePath];
          yield* child.schema.walk({
             ...opts,
-            instancePath: [...instancePath, ...child.instancePath],
+            data,
+            maxDepth,
+            instancePath: childInstancePath,
             keywordPath: [...keywordPath, ...child.keywordPath],
          });
       }
@@ -273,21 +296,27 @@ export type WalkOptions = {
    keywordPath?: (string | number)[];
    includeSelf?: boolean;
    data?: any;
+   maxDepth?: number;
 };
 
 export class Node<T extends Schema = Schema> {
    public instancePath: (string | number)[];
    public keywordPath: (string | number)[];
    public data?: any;
+   public depth: number;
 
    constructor(public readonly schema: T, opts: WalkOptions = {}) {
       this.instancePath = opts.instancePath || [];
       this.keywordPath = opts.keywordPath || [];
+      // Depth should represent data nesting level, which is the instancePath length
+      this.depth = this.instancePath.length;
 
       try {
-         const data = getPath(opts.data, this.instancePath);
-         if (schema.validate(data).valid) {
-            this.data = data;
+         if (opts.data !== undefined) {
+            const data = getPath(opts.data, this.instancePath);
+            if (schema.validate(data).valid) {
+               this.data = data;
+            }
          }
       } catch (e) {}
    }
@@ -303,7 +332,7 @@ export class Node<T extends Schema = Schema> {
    }
 
    setData(data: any) {
-      this.data = structuredClone(data);
+      this.data = data;
       return this;
    }
 }
