@@ -10,6 +10,7 @@ export {
    type ToolAnnotation,
    type ToolHandlerCtx,
    type ToolResponse,
+   type ToolJson,
 } from "./tool";
 export {
    Resource,
@@ -17,6 +18,7 @@ export {
    type ResourceResponse,
    type TResourceUri,
    type ResourceHandlerCtx,
+   type ResourceJson,
 } from "./resource";
 export {
    mcp,

@@ -75,6 +75,7 @@ export type ToolResponseText = {
 };
 
 export type ToolResponse = ToolResponseText;
+export type ToolJson = ReturnType<Tool["toJSON"]>;
 
 export class Tool<
    Name extends string = string,

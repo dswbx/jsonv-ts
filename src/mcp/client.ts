@@ -37,10 +37,6 @@ export class McpClient {
 
    constructor(readonly config: McpClientConfig) {}
 
-   private get fetch() {
-      return this.config.fetch ?? fetch;
-   }
-
    private async request<Message extends RpcMessage>(
       method: string,
       params: TRpcMessageParams<Message>
@@ -61,7 +57,7 @@ export class McpClient {
          headers.set("Mcp-Session-Id", this.sessionId);
       }
 
-      const res = await this.fetch(this.config.url, {
+      const res = await (this.config.fetch ?? fetch)(this.config.url, {
          method: "POST",
          headers,
          body: JSON.stringify(message),

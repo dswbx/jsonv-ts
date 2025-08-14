@@ -75,6 +75,8 @@ export type ResourceResponse = {
    | { blob?: string }
 );
 
+export type ResourceJson = ReturnType<Resource["toJSON"]>;
+
 export class Resource<
    Name extends string = string,
    Uri extends TResourceUri = TResourceUri,
