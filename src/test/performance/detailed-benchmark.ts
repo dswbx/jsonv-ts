@@ -293,3 +293,7 @@ export async function runFullBenchmark() {
 
 // Export for use in optimization testing
 export { testScenarios, PerformanceCollector };
+
+if (import.meta.env.RUN) {
+   await runFullBenchmark();
+}
