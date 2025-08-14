@@ -242,18 +242,21 @@ describe("union", () => {
             instancePath: [],
             keywordPath: [],
             data: undefined,
+            depth: 0,
          },
          {
             schema: "StringSchema",
             instancePath: [],
             keywordPath: ["anyOf", 0],
             data: undefined,
+            depth: 0,
          },
          {
             schema: "",
             instancePath: [],
             keywordPath: ["anyOf", 1],
             data: undefined,
+            depth: 0,
          },
       ]);
 
@@ -272,18 +275,20 @@ describe("union", () => {
             instancePath: [],
             keywordPath: [],
             data: 1,
+            depth: 0,
          },
          {
             schema: "StringSchema",
             instancePath: [],
             keywordPath: ["anyOf", 0],
-            data: undefined,
+            depth: 0,
          },
          {
             schema: "",
             instancePath: [],
             keywordPath: ["anyOf", 1],
             data: 1,
+            depth: 0,
          },
       ]);
    });

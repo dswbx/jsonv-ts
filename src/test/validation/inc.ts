@@ -31,7 +31,7 @@ export const schemas = [
 
 export type TValidator<Schema = any> = {
    name: string;
-   prepare: (schema: s.SchemaType, data: unknown) => Schema;
+   prepare: (schema: s.Schema, data: unknown) => Schema;
    validate: (schema: Schema, data: unknown) => boolean;
 };
 

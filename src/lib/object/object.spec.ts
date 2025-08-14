@@ -753,26 +753,36 @@ describe("object", () => {
             schema: "ObjectSchema",
             instancePath: [],
             keywordPath: [],
+            depth: 0,
+            data: undefined,
          },
          {
             schema: "StringSchema",
             instancePath: ["name"],
             keywordPath: ["properties", "name"],
+            depth: 1,
+            data: undefined,
          },
          {
             schema: "ArraySchema",
             instancePath: ["tags"],
             keywordPath: ["properties", "tags"],
+            depth: 1,
+            data: undefined,
          },
          {
             schema: "StringSchema",
             instancePath: ["tags"],
             keywordPath: ["properties", "tags", "items"],
+            depth: 1,
+            data: undefined,
          },
          {
             schema: "StringSchema",
             instancePath: ["type"],
             keywordPath: ["properties", "type"],
+            depth: 1,
+            data: undefined,
          },
       ]);
 
@@ -791,30 +801,35 @@ describe("object", () => {
             instancePath: [],
             keywordPath: [],
             data: { name: "john", tags: ["a", "b"], type: "what" },
+            depth: 0,
          },
          {
             schema: "StringSchema",
             instancePath: ["name"],
             keywordPath: ["properties", "name"],
             data: "john",
+            depth: 1,
          },
          {
             schema: "ArraySchema",
             instancePath: ["tags"],
             keywordPath: ["properties", "tags"],
             data: ["a", "b"],
+            depth: 1,
          },
          {
             schema: "StringSchema",
             instancePath: ["tags"],
             keywordPath: ["properties", "tags", "items"],
             data: undefined,
+            depth: 1,
          },
          {
             schema: "StringSchema",
             instancePath: ["type"],
             keywordPath: ["properties", "type"],
             data: "what",
+            depth: 1,
          },
       ]);
    });

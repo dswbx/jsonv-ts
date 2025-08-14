@@ -11,6 +11,7 @@ import {
    type ValidationResult,
 } from "../validation/validate";
 import { schemaSymbol } from "../shared";
+import { safeStructuredClone } from "../utils";
 
 export { schemaSymbol as symbol };
 
@@ -71,6 +72,8 @@ export class Schema<
       optional: boolean;
       overrides?: ISchemaFn;
    };
+
+   protected _resolver?: Resolver;
 
    readonly type: string | undefined;
    $id?: string;
@@ -162,13 +165,15 @@ export class Schema<
          errors: opts?.errors || [],
          shortCircuit: opts?.shortCircuit || false,
          ignoreUnsupported: opts?.ignoreUnsupported || false,
-         resolver: opts?.resolver || new Resolver(this),
+         resolver: opts?.resolver || this.getResolver(),
          depth: opts?.depth ? opts.depth + 1 : 0,
+         skipClone: opts?.skipClone ?? true,
       };
 
       const customValidate = this[schemaSymbol].raw?.validate;
       if (customValidate !== undefined) {
          const result = customValidate(value, ctx);
+
          if (!result.valid) {
             return result;
          }
@@ -180,7 +185,7 @@ export class Schema<
    coerce(value: unknown, opts?: CoercionOptions) {
       const ctx: Required<CoercionOptions> = {
          ...opts,
-         resolver: opts?.resolver || new Resolver(this),
+         resolver: opts?.resolver || this.getResolver(),
          depth: opts?.depth ? opts.depth + 1 : 0,
          dropUnknown: opts?.dropUnknown || false,
       };
@@ -216,6 +221,13 @@ export class Schema<
       return this[schemaSymbol].optional;
    }
 
+   getResolver(): Resolver {
+      if (!this._resolver) {
+         this._resolver = new Resolver(this);
+      }
+      return this._resolver;
+   }
+
    children(opts?: WalkOptions): Node[] {
       return [];
    }
@@ -228,16 +240,37 @@ export class Schema<
    *walk({
       instancePath = [],
       keywordPath = [],
+      data: _data,
+      maxDepth = Number.POSITIVE_INFINITY,
       ...opts
    }: WalkOptions = {}): Generator<Node<Schema>> {
+      const data =
+         instancePath.length === 0 && _data
+            ? safeStructuredClone(_data)
+            : _data;
+
       if (opts.includeSelf !== false) {
-         yield new Node(this, { instancePath, keywordPath, ...opts });
+         yield new Node(this, {
+            instancePath,
+            keywordPath,
+            data,
+            ...opts,
+         });
+      }
+
+      // Check if we've reached the maximum depth before processing children
+      // Depth is based on instancePath length (data nesting level)
+      if (instancePath.length >= maxDepth) {
+         return;
       }
 
       for (const child of this.children(opts)) {
+         const childInstancePath = [...instancePath, ...child.instancePath];
          yield* child.schema.walk({
             ...opts,
-            instancePath: [...instancePath, ...child.instancePath],
+            data,
+            maxDepth,
+            instancePath: childInstancePath,
             keywordPath: [...keywordPath, ...child.keywordPath],
          });
       }
@@ -253,7 +286,7 @@ export class Schema<
    // cannot force type this one
    // otherwise ISchemaOptions must be widened to include any
    toJSON(): JSONSchemaDefinition {
-      const { toJSON, "~standard": _, ...rest } = this;
+      const { toJSON, "~standard": _, _resolver, ...rest } = this;
       return JSON.parse(JSON.stringify(rest));
    }
 }
@@ -263,21 +296,27 @@ export type WalkOptions = {
    keywordPath?: (string | number)[];
    includeSelf?: boolean;
    data?: any;
+   maxDepth?: number;
 };
 
 export class Node<T extends Schema = Schema> {
    public instancePath: (string | number)[];
    public keywordPath: (string | number)[];
    public data?: any;
+   public depth: number;
 
    constructor(public readonly schema: T, opts: WalkOptions = {}) {
       this.instancePath = opts.instancePath || [];
       this.keywordPath = opts.keywordPath || [];
+      // Depth should represent data nesting level, which is the instancePath length
+      this.depth = this.instancePath.length;
 
       try {
-         const data = getPath(opts.data, this.instancePath);
-         if (schema.validate(data).valid) {
-            this.data = data;
+         if (opts.data !== undefined) {
+            const data = getPath(opts.data, this.instancePath);
+            if (schema.validate(data).valid) {
+               this.data = data;
+            }
          }
       } catch (e) {}
    }
@@ -293,7 +332,7 @@ export class Node<T extends Schema = Schema> {
    }
 
    setData(data: any) {
-      this.data = structuredClone(data);
+      this.data = data;
       return this;
    }
 }
@@ -308,16 +347,23 @@ export function createSchema<
    })(o, overrides) as any;
 }
 
+class BooleanSchema<B extends boolean> extends Schema<
+   ISchemaOptions,
+   B extends true ? unknown : never
+> {
+   constructor(private bool: B) {
+      super();
+   }
+
+   override toJSON() {
+      return this.bool as any;
+   }
+
+   override validate(value: unknown, opts?: ValidationOptions) {
+      return this.bool ? valid() : error(opts, "", "Always fails", value);
+   }
+}
+
 export function booleanSchema<B extends boolean>(bool: B) {
-   return new (class extends Schema<
-      ISchemaOptions,
-      B extends true ? unknown : never
-   > {
-      override toJSON() {
-         return bool as any;
-      }
-      override validate(value: unknown, opts?: ValidationOptions) {
-         return bool ? valid() : error(opts, "", "Always fails", value);
-      }
-   })();
+   return new BooleanSchema(bool);
 }

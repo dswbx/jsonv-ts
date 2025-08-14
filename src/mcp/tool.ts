@@ -90,13 +90,13 @@ export class Tool<
          ctx: ToolHandlerCtx<any>
       ) => MaybePromise<ToolResponse>
    ) {
-      if (
+      /* if (
          config &&
          config?.annotations &&
          !annotationSchema.validate(config?.annotations).valid
       ) {
          throw new Error("Invalid tool annotation");
-      }
+      } */
    }
 
    async call(

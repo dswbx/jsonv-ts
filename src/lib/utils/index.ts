@@ -86,19 +86,36 @@ export function invariant(
    }
 }
 
+// Simple cache for normalize function to avoid repeated expensive operations
+const normalizeCache = new WeakMap<object, unknown>();
+
 export function normalize(value: unknown) {
-   if (isArray(value)) {
-      return value.map(normalize).sort();
-   }
-   if (isObject(value)) {
-      const sortedEntries = Object.entries(value)
-         .sort(([a], [b]) => a.localeCompare(b))
-         .map(([k, v]) => [k, normalize(v)]);
-      return Object.fromEntries(sortedEntries);
-   }
+   // For primitive values, return as-is or do simple normalization
+   if (value === null || value === undefined) return value;
+   if (typeof value === "boolean" || typeof value === "number") return value;
    if (isString(value)) {
       return value.normalize("NFC");
    }
+
+   // For objects and arrays, use caching
+   if (isArray(value) || isObject(value)) {
+      const cached = normalizeCache.get(value as object);
+      if (cached !== undefined) return cached;
+
+      let result: unknown;
+      if (isArray(value)) {
+         result = value.map(normalize).sort();
+      } else {
+         const sortedEntries = Object.entries(value)
+            .sort(([a], [b]) => a.localeCompare(b))
+            .map(([k, v]) => [k, normalize(v)]);
+         result = Object.fromEntries(sortedEntries);
+      }
+
+      normalizeCache.set(value as object, result);
+      return result;
+   }
+
    return value;
 }
 
