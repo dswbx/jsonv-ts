@@ -23,6 +23,7 @@ export interface McpClientConfig {
    version?: string;
    transport?: "streamableHttp";
    url: string | URL;
+   headers?: Record<string, string>;
    fetch?:
       | typeof fetch
       | ((
@@ -53,6 +54,11 @@ export class McpClient {
          "Content-Type": "application/json",
          Accept: "application/json",
       });
+      if (this.config.headers) {
+         Object.entries(this.config.headers).forEach(([key, value]) => {
+            headers.set(key, value);
+         });
+      }
       if (this.sessionId) {
          headers.set("Mcp-Session-Id", this.sessionId);
       }

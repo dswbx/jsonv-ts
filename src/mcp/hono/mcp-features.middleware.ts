@@ -307,12 +307,12 @@ export function getMcpServer(hono: Hono<any>) {
                inputSchema,
             },
             async (params, c) => {
-               const headers = {
-                  authorization:
-                     c.raw instanceof Request
-                        ? c.raw.headers.get("authorization") ?? undefined
-                        : undefined,
-               };
+               const headers: Record<string, string | undefined> = {};
+               if (c.raw instanceof Request) {
+                  headers.authorization =
+                     c.raw.headers.get("authorization") ?? undefined;
+                  headers.cookie = c.raw.headers.get("cookie") ?? undefined;
+               }
 
                const request = featureInfoToRequest(feature, params, {
                   inputSchema,
