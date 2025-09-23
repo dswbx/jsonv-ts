@@ -3,6 +3,8 @@ export {
    type McpServerInfo,
    type McpServerOptions,
    mcpServer,
+   type LogLevel,
+   logLevelNames as logLevels,
 } from "./server";
 export {
    Tool,
