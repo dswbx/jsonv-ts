@@ -702,11 +702,11 @@ const result = schema.validate({ id: 1, username: "valid_user" });
 
 **Validation Status**
 
--  Total tests: 1906
--  Passed: 1412 (74.08%)
--  Skipped: 440 (23.08%)
--  Failed: 0 (0.00%)
--  Optional failed: 54 (2.83%)
+- Total tests: 1912
+- Passed: 1414 (73.95%)
+- Skipped: 444 (23.22%)
+- Failed: 0 (0.00%)
+- Optional failed: 54 (2.82%)
 
 Todo:
 

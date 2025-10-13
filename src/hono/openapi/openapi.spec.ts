@@ -35,7 +35,11 @@ describe("openapi", () => {
          paths: {
             "/": {
                get: {
-                  responses: {},
+                  responses: {
+                     "200": {
+                        description: "Success",
+                     },
+                  },
                   operationId: "getIndex",
                   summary: "hello-summary",
                   description: "hello-description",
@@ -61,7 +65,11 @@ describe("openapi", () => {
       expect(specs.paths).toEqual({
          "/": {
             get: {
-               responses: {},
+               responses: {
+                  "200": {
+                     description: "Success",
+                  },
+               },
                operationId: "getIndex",
                parameters: [
                   {
@@ -110,7 +118,11 @@ describe("openapi", () => {
       expect(specs.paths).toEqual({
          "/": {
             get: {
-               responses: {},
+               responses: {
+                  "200": {
+                     description: "Success",
+                  },
+               },
                operationId: "getIndex",
                parameters: [
                   {
@@ -166,7 +178,11 @@ describe("openapi", () => {
       expect(specs.paths).toEqual({
          "/test/{id}": {
             get: {
-               responses: {},
+               responses: {
+                  "200": {
+                     description: "Success",
+                  },
+               },
                operationId: "getTestById",
                parameters: [
                   {

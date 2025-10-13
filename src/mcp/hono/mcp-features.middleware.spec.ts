@@ -111,7 +111,11 @@ describe("mcp features", () => {
          info: {
             method: "GET",
             openAPI: {
-               responses: {},
+               responses: {
+                  "200": {
+                     description: "Success",
+                  },
+               },
                operationId: "getIndex",
                parameters: [
                   {
@@ -187,7 +191,11 @@ describe("mcp features", () => {
             info: {
                method: "GET",
                openAPI: {
-                  responses: {},
+                  responses: {
+                     "200": {
+                        description: "Success",
+                     },
+                  },
                   operationId: "getAnother",
                   parameters: [
                      {
@@ -223,7 +231,11 @@ describe("mcp features", () => {
             info: {
                method: "GET",
                openAPI: {
-                  responses: {},
+                  responses: {
+                     "200": {
+                        description: "Success",
+                     },
+                  },
                   operationId: "getPathByName",
                   parameters: [
                      {

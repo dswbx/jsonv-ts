@@ -27,7 +27,11 @@ describe("hono info", () => {
             GET: {
                method: "GET",
                openAPI: {
-                  responses: {},
+                  responses: {
+                     "200": {
+                        description: "Success",
+                     },
+                  },
                   description: "Some description",
                   summary: "Some route",
                   operationId: "getSome",
