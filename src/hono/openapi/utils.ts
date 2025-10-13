@@ -75,7 +75,12 @@ export function registerPath(
    }
    if (!specs.paths?.[path]?.[method]) {
       specs.paths[path][method] = {
-         responses: {},
+         // adding a default response is required for swagger
+         responses: {
+            "200": {
+               description: "Success",
+            },
+         },
          operationId: generateOperationId(method, path),
       };
    }

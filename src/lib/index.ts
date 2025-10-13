@@ -5,6 +5,7 @@ export {
    booleanSchema,
    type TSchemaTemplateOptions,
    type Node,
+   type ISchemaFn,
 } from "./schema/schema";
 export {
    any,

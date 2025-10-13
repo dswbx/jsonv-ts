@@ -203,7 +203,6 @@ describe("openapi", () => {
    test("allow describeRoute without config", async () => {
       const app = new Hono().get("/", describeRoute());
       const specs = await getspecs(app);
-      console.log(specs);
    });
 
    test.skip("optional path parameter", async () => {

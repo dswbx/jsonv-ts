@@ -503,16 +503,6 @@ describe("misc", () => {
          where?: any;
       };
       type RepoQuery = s.StaticCoerced<typeof repoQuery>;
-
-      console.log(
-         "parse",
-         repoQuery.coerce({
-            limit: 10,
-            with: {
-               posts: { limit: "10" },
-            },
-         })
-      );
    });
 
    test("RepoQuery2", () => {
@@ -691,16 +681,6 @@ describe("misc", () => {
             { default: {} }
          ),
       });
-
-      console.log("template", schema.template({ s: { a: "1", c: "2" } }));
-
-      console.log(
-         JSON.stringify(
-            schema.validate(schema.template({ s: { c: 1 } })),
-            null,
-            2
-         )
-      );
    });
 });
 
@@ -829,13 +809,5 @@ describe("schemas", () => {
          storage: {},
          adapter: { type: "local", config: { path: "./" } },
       };
-
-      console.log(
-         "parsed",
-         s.parse(schema, payload, {
-            withDefaults: true,
-            //withExtendedDefaults: true,
-         })
-      );
    });
 });

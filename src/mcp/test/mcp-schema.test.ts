@@ -25,9 +25,6 @@ export class ToolObjectSchema<
             inputSchema: this as unknown as s.ObjectSchema<P, O>,
          },
          async (params, ctx: ToolHandlerCtx<any>) => {
-            /* console.log("context", ctx.context);
-            console.log("params", params);
-            console.log("request", ctx.request); */
             set(ctx.context.value, node.instancePath, params);
             return ctx.text(`hello world at: ${node.instancePath.join(".")}`);
          }

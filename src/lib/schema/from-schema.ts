@@ -13,16 +13,20 @@ function eachArray<T>(array: any | any[], fn: (item: any) => T): T[] {
 
 function eachObject<T>(
    object: Record<string, any>,
-   fn: (item: any) => T,
+   fn: (item: any, key: string) => T,
    cb: (s: T, key: string) => T | Omit<T, "optional"> = (s) => s
 ): Record<string, T> {
    return Object.fromEntries(
-      Object.entries(object).map(([key, value]) => [key, cb(fn(value), key)])
+      Object.entries(object).map(([key, value]) => [
+         key,
+         cb(fn(value, key), key),
+      ])
    ) as Record<string, T>;
 }
 
 export type AnySchema<Type = unknown> = lib.Schema<any, Type> &
-   JSONSchema<lib.Schema>;
+   JSONSchema<lib.Schema> &
+   lib.ISchemaFn;
 
 export function fromSchema<Type = unknown>(_schema: any): AnySchema<Type> {
    if (isBoolean(_schema)) {
@@ -33,7 +37,7 @@ export function fromSchema<Type = unknown>(_schema: any): AnySchema<Type> {
 
    if (!isObject(schema)) {
       throw new InvalidRawSchemaError(
-         "non-object schemas not implemented",
+         "non-object schemas cannot be converted to a schema",
          schema
       );
    }
@@ -41,7 +45,15 @@ export function fromSchema<Type = unknown>(_schema: any): AnySchema<Type> {
    if ("properties" in schema && schema.properties) {
       schema.properties = eachObject(
          schema.properties,
-         fromSchema,
+         (item, key) => {
+            try {
+               return fromSchema(item);
+            } catch (e) {
+               throw new Error(
+                  `Couldn't schemaize property "${key}": ${String(e)}`
+               );
+            }
+         },
          (s, key) => {
             if (
                "required" in schema &&

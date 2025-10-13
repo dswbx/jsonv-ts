@@ -76,16 +76,10 @@ function runTests(
 ) {
    const tbt = Default(tb, {});
    const jvt = jv.template({});
-   console.log("===== Template =====");
-   console.log("tb:template", tbt);
-   console.log("jv:template", jvt);
    expect(omitKeys(jvt, opts?.ignore)).toEqual(omitKeys(tbt, opts?.ignore));
 
-   console.log("===== Parse =====");
    const jvpt = jsParse(jv, {});
    const tbpt = tbParse(tb, {});
-   console.log("tb:parse", tbpt);
-   console.log("jv:parse", jvpt);
 
    expect(omitKeys(jvpt, opts?.ignore)).toEqual(omitKeys(tbpt, opts?.ignore));
 }

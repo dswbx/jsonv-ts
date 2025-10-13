@@ -1,0 +1,1189 @@
+{
+   "openapi": "3.1.0",
+   "info": {
+      "title": "bknd API",
+      "version": "0.18.0"
+   },
+   "paths": {
+      "/api/data": {
+         "get": {
+            "responses": {
+               "200": {
+                  "description": "Success"
+               }
+            },
+            "operationId": "getApiData",
+            "summary": "Retrieve data configuration",
+            "tags": ["data"]
+         }
+      },
+      "/api/data/sync": {
+         "get": {
+            "responses": {
+               "200": {
+                  "description": "Success"
+               }
+            },
+            "operationId": "getApiDataSync",
+            "summary": "Sync database schema",
+            "tags": ["data"],
+            "parameters": [
+               {
+                  "name": "force",
+                  "in": "query",
+                  "schema": {
+                     "type": "boolean"
+                  }
+               },
+               {
+                  "name": "drop",
+                  "in": "query",
+                  "schema": {
+                     "type": "boolean"
+                  }
+               }
+            ]
+         }
+      },
+      "/api/data/schema.json": {
+         "get": {
+            "responses": {
+               "200": {
+                  "description": "Success"
+               }
+            },
+            "operationId": "getApiDataSchema.json",
+            "summary": "Retrieve data schema",
+            "tags": ["data"]
+         }
+      },
+      "/api/data/schemas/{entity}/{context}": {
+         "get": {
+            "responses": {
+               "200": {
+                  "description": "Success"
+               }
+            },
+            "operationId": "getApiDataSchemasByEntityByContext",
+            "summary": "Retrieve entity schema",
+            "tags": ["data"],
+            "parameters": [
+               {
+                  "name": "entity",
+                  "in": "path",
+                  "required": true,
+                  "schema": {
+                     "anyOf": [
+                        {
+                           "type": "string",
+                           "enum": ["test", "items", "media"]
+                        },
+                        {
+                           "type": "string"
+                        }
+                     ]
+                  }
+               },
+               {
+                  "name": "context",
+                  "in": "path",
+                  "schema": {
+                     "type": "string",
+                     "enum": ["create", "update"],
+                     "default": "create"
+                  }
+               }
+            ]
+         }
+      },
+      "/api/data/entity/{entity}/fn/count": {
+         "post": {
+            "responses": {
+               "200": {
+                  "description": "Success"
+               }
+            },
+            "operationId": "postApiDataEntityByEntityFnCount",
+            "summary": "Count entities",
+            "tags": ["data"],
+            "parameters": [
+               {
+                  "name": "entity",
+                  "in": "path",
+                  "required": true,
+                  "schema": {
+                     "anyOf": [
+                        {
+                           "type": "string",
+                           "enum": ["test", "items", "media"]
+                        },
+                        {
+                           "type": "string"
+                        }
+                     ]
+                  }
+               }
+            ],
+            "requestBody": {
+               "content": {
+                  "application/json": {
+                     "schema": {
+                        "examples": [
+                           {
+                              "attribute": {
+                                 "$eq": 1
+                              }
+                           }
+                        ],
+                        "default": {},
+                        "anyOf": [
+                           {
+                              "type": "string"
+                           },
+                           {
+                              "type": "object",
+                              "properties": {}
+                           }
+                        ]
+                     },
+                     "example": {
+                        "attribute": {
+                           "$eq": 1
+                        }
+                     }
+                  }
+               }
+            }
+         }
+      },
+      "/api/data/entity/{entity}/fn/exists": {
+         "post": {
+            "responses": {
+               "200": {
+                  "description": "Success"
+               }
+            },
+            "operationId": "postApiDataEntityByEntityFnExists",
+            "summary": "Check if entity exists",
+            "tags": ["data"],
+            "parameters": [
+               {
+                  "name": "entity",
+                  "in": "path",
+                  "required": true,
+                  "schema": {
+                     "anyOf": [
+                        {
+                           "type": "string",
+                           "enum": ["test", "items", "media"]
+                        },
+                        {
+                           "type": "string"
+                        }
+                     ]
+                  }
+               }
+            ],
+            "requestBody": {
+               "content": {
+                  "application/json": {
+                     "schema": {
+                        "examples": [
+                           {
+                              "attribute": {
+                                 "$eq": 1
+                              }
+                           }
+                        ],
+                        "default": {},
+                        "anyOf": [
+                           {
+                              "type": "string"
+                           },
+                           {
+                              "type": "object",
+                              "properties": {}
+                           }
+                        ]
+                     },
+                     "example": {
+                        "attribute": {
+                           "$eq": 1
+                        }
+                     }
+                  }
+               }
+            }
+         }
+      },
+      "/api/data/entity/{entity}": {
+         "get": {
+            "responses": {
+               "200": {
+                  "description": "Success"
+               }
+            },
+            "operationId": "getApiDataEntityByEntity",
+            "summary": "Read many",
+            "parameters": [
+               {
+                  "name": "entity",
+                  "in": "path",
+                  "required": true,
+                  "schema": {
+                     "anyOf": [
+                        {
+                           "type": "string",
+                           "enum": ["test", "items", "media"]
+                        },
+                        {
+                           "type": "string"
+                        }
+                     ]
+                  }
+               },
+               {
+                  "name": "limit",
+                  "in": "query",
+                  "schema": {
+                     "type": "number",
+                     "default": 10
+                  }
+               },
+               {
+                  "name": "offset",
+                  "in": "query",
+                  "schema": {
+                     "type": "number",
+                     "default": 0
+                  }
+               },
+               {
+                  "name": "sort",
+                  "in": "query",
+                  "schema": {
+                     "type": "string",
+                     "default": "id"
+                  }
+               },
+               {
+                  "name": "select",
+                  "in": "query",
+                  "schema": {
+                     "type": "array",
+                     "items": {
+                        "type": "string"
+                     }
+                  }
+               },
+               {
+                  "name": "join",
+                  "in": "query",
+                  "schema": {
+                     "type": "array",
+                     "items": {
+                        "type": "string"
+                     }
+                  }
+               }
+            ],
+            "tags": ["data"]
+         },
+         "post": {
+            "responses": {
+               "200": {
+                  "description": "Success"
+               }
+            },
+            "operationId": "postApiDataEntityByEntity",
+            "summary": "Insert one or many",
+            "tags": ["data"],
+            "parameters": [
+               {
+                  "name": "entity",
+                  "in": "path",
+                  "required": true,
+                  "schema": {
+                     "anyOf": [
+                        {
+                           "type": "string",
+                           "enum": ["test", "items", "media"]
+                        },
+                        {
+                           "type": "string"
+                        }
+                     ]
+                  }
+               }
+            ],
+            "requestBody": {
+               "content": {
+                  "application/json": {
+                     "schema": {
+                        "anyOf": [
+                           {
+                              "type": "object",
+                              "properties": {}
+                           },
+                           {
+                              "type": "array",
+                              "items": {
+                                 "type": "object",
+                                 "properties": {}
+                              }
+                           }
+                        ]
+                     },
+                     "example": {}
+                  }
+               }
+            }
+         },
+         "patch": {
+            "responses": {
+               "200": {
+                  "description": "Success"
+               }
+            },
+            "operationId": "patchApiDataEntityByEntity",
+            "summary": "Update many",
+            "tags": ["data"],
+            "parameters": [
+               {
+                  "name": "entity",
+                  "in": "path",
+                  "required": true,
+                  "schema": {
+                     "anyOf": [
+                        {
+                           "type": "string",
+                           "enum": ["test", "items", "media"]
+                        },
+                        {
+                           "type": "string"
+                        }
+                     ]
+                  }
+               }
+            ],
+            "requestBody": {
+               "content": {
+                  "application/json": {
+                     "schema": {
+                        "type": "object",
+                        "properties": {
+                           "update": {
+                              "type": "object",
+                              "properties": {}
+                           },
+                           "where": {
+                              "examples": [
+                                 {
+                                    "attribute": {
+                                       "$eq": 1
+                                    }
+                                 }
+                              ],
+                              "default": {},
+                              "anyOf": [
+                                 {
+                                    "type": "string"
+                                 },
+                                 {
+                                    "type": "object",
+                                    "properties": {}
+                                 }
+                              ]
+                           }
+                        },
+                        "required": ["update"]
+                     },
+                     "example": {
+                        "update": {},
+                        "where": {}
+                     }
+                  }
+               }
+            }
+         },
+         "delete": {
+            "responses": {
+               "200": {
+                  "description": "Success"
+               }
+            },
+            "operationId": "deleteApiDataEntityByEntity",
+            "summary": "Delete many",
+            "tags": ["data"],
+            "parameters": [
+               {
+                  "name": "entity",
+                  "in": "path",
+                  "required": true,
+                  "schema": {
+                     "anyOf": [
+                        {
+                           "type": "string",
+                           "enum": ["test", "items", "media"]
+                        },
+                        {
+                           "type": "string"
+                        }
+                     ]
+                  }
+               }
+            ],
+            "requestBody": {
+               "content": {
+                  "application/json": {
+                     "schema": {
+                        "examples": [
+                           {
+                              "attribute": {
+                                 "$eq": 1
+                              }
+                           }
+                        ],
+                        "default": {},
+                        "anyOf": [
+                           {
+                              "type": "string"
+                           },
+                           {
+                              "type": "object",
+                              "properties": {}
+                           }
+                        ]
+                     },
+                     "example": {
+                        "attribute": {
+                           "$eq": 1
+                        }
+                     }
+                  }
+               }
+            }
+         }
+      },
+      "/api/data/entity/{entity}/{id}": {
+         "get": {
+            "responses": {
+               "200": {
+                  "description": "Success"
+               }
+            },
+            "operationId": "getApiDataEntityByEntityById",
+            "summary": "Read one",
+            "parameters": [
+               {
+                  "name": "entity",
+                  "in": "path",
+                  "required": true,
+                  "schema": {
+                     "anyOf": [
+                        {
+                           "type": "string",
+                           "enum": ["test", "items", "media"]
+                        },
+                        {
+                           "type": "string"
+                        }
+                     ]
+                  }
+               },
+               {
+                  "name": "id",
+                  "in": "path",
+                  "required": true,
+                  "schema": {
+                     "anyOf": [
+                        {
+                           "type": "number",
+                           "title": "Integer"
+                        },
+                        {
+                           "type": "string",
+                           "title": "UUID"
+                        }
+                     ]
+                  }
+               },
+               {
+                  "name": "offset",
+                  "in": "query",
+                  "schema": {
+                     "type": "number",
+                     "default": 0
+                  }
+               },
+               {
+                  "name": "sort",
+                  "in": "query",
+                  "schema": {
+                     "type": "string",
+                     "default": "id"
+                  }
+               },
+               {
+                  "name": "select",
+                  "in": "query",
+                  "schema": {
+                     "type": "array",
+                     "items": {
+                        "type": "string"
+                     }
+                  }
+               }
+            ],
+            "tags": ["data"]
+         },
+         "patch": {
+            "responses": {
+               "200": {
+                  "description": "Success"
+               }
+            },
+            "operationId": "patchApiDataEntityByEntityById",
+            "summary": "Update one",
+            "tags": ["data"],
+            "parameters": [
+               {
+                  "name": "entity",
+                  "in": "path",
+                  "required": true,
+                  "schema": {
+                     "anyOf": [
+                        {
+                           "type": "string",
+                           "enum": ["test", "items", "media"]
+                        },
+                        {
+                           "type": "string"
+                        }
+                     ]
+                  }
+               },
+               {
+                  "name": "id",
+                  "in": "path",
+                  "required": true,
+                  "schema": {
+                     "anyOf": [
+                        {
+                           "type": "number",
+                           "title": "Integer"
+                        },
+                        {
+                           "type": "string",
+                           "title": "UUID"
+                        }
+                     ]
+                  }
+               }
+            ],
+            "requestBody": {
+               "content": {
+                  "application/json": {
+                     "schema": {
+                        "type": "object",
+                        "properties": {}
+                     },
+                     "example": {}
+                  }
+               }
+            }
+         },
+         "delete": {
+            "responses": {
+               "200": {
+                  "description": "Success"
+               }
+            },
+            "operationId": "deleteApiDataEntityByEntityById",
+            "summary": "Delete one",
+            "tags": ["data"],
+            "parameters": [
+               {
+                  "name": "entity",
+                  "in": "path",
+                  "required": true,
+                  "schema": {
+                     "anyOf": [
+                        {
+                           "type": "string",
+                           "enum": ["test", "items", "media"]
+                        },
+                        {
+                           "type": "string"
+                        }
+                     ]
+                  }
+               },
+               {
+                  "name": "id",
+                  "in": "path",
+                  "required": true,
+                  "schema": {
+                     "anyOf": [
+                        {
+                           "type": "number",
+                           "title": "Integer"
+                        },
+                        {
+                           "type": "string",
+                           "title": "UUID"
+                        }
+                     ]
+                  }
+               }
+            ]
+         }
+      },
+      "/api/data/entity/{entity}/{id}/{reference}": {
+         "get": {
+            "responses": {
+               "200": {
+                  "description": "Success"
+               }
+            },
+            "operationId": "getApiDataEntityByEntityByIdByReference",
+            "summary": "Read many by reference",
+            "parameters": [
+               {
+                  "name": "entity",
+                  "in": "path",
+                  "required": true,
+                  "schema": {
+                     "anyOf": [
+                        {
+                           "type": "string",
+                           "enum": ["test", "items", "media"]
+                        },
+                        {
+                           "type": "string"
+                        }
+                     ]
+                  }
+               },
+               {
+                  "name": "id",
+                  "in": "path",
+                  "required": true,
+                  "schema": {
+                     "anyOf": [
+                        {
+                           "type": "number",
+                           "title": "Integer"
+                        },
+                        {
+                           "type": "string",
+                           "title": "UUID"
+                        }
+                     ]
+                  }
+               },
+               {
+                  "name": "reference",
+                  "in": "path",
+                  "required": true,
+                  "schema": {
+                     "type": "string"
+                  }
+               },
+               {
+                  "name": "limit",
+                  "in": "query",
+                  "schema": {
+                     "type": "number",
+                     "default": 10
+                  }
+               },
+               {
+                  "name": "offset",
+                  "in": "query",
+                  "schema": {
+                     "type": "number",
+                     "default": 0
+                  }
+               },
+               {
+                  "name": "sort",
+                  "in": "query",
+                  "schema": {
+                     "type": "string",
+                     "default": "id"
+                  }
+               },
+               {
+                  "name": "where",
+                  "in": "query",
+                  "schema": {
+                     "examples": [
+                        {
+                           "attribute": {
+                              "$eq": 1
+                           }
+                        }
+                     ],
+                     "default": {},
+                     "anyOf": [
+                        {
+                           "type": "string"
+                        },
+                        {
+                           "type": "object",
+                           "properties": {}
+                        }
+                     ]
+                  }
+               },
+               {
+                  "name": "select",
+                  "in": "query",
+                  "schema": {
+                     "type": "array",
+                     "items": {
+                        "type": "string"
+                     }
+                  }
+               },
+               {
+                  "name": "join",
+                  "in": "query",
+                  "schema": {
+                     "type": "array",
+                     "items": {
+                        "type": "string"
+                     }
+                  }
+               }
+            ],
+            "tags": ["data"]
+         }
+      },
+      "/api/data/entity/{entity}/query": {
+         "post": {
+            "responses": {
+               "200": {
+                  "description": "Success"
+               }
+            },
+            "operationId": "postApiDataEntityByEntityQuery",
+            "summary": "Query entities",
+            "requestBody": {
+               "content": {
+                  "application/json": {
+                     "schema": {
+                        "type": "object",
+                        "properties": {
+                           "limit": {
+                              "type": "number",
+                              "default": 10
+                           },
+                           "offset": {
+                              "type": "number",
+                              "default": 0
+                           },
+                           "sort": {
+                              "type": "string",
+                              "default": "id"
+                           },
+                           "where": {
+                              "examples": [
+                                 {
+                                    "attribute": {
+                                       "$eq": 1
+                                    }
+                                 }
+                              ],
+                              "default": {},
+                              "anyOf": [
+                                 {
+                                    "type": "string"
+                                 },
+                                 {
+                                    "type": "object",
+                                    "properties": {}
+                                 }
+                              ]
+                           },
+                           "select": {
+                              "type": "array",
+                              "items": {
+                                 "type": "string"
+                              }
+                           },
+                           "join": {
+                              "type": "array",
+                              "items": {
+                                 "type": "string"
+                              }
+                           },
+                           "with": {
+                              "type": "object",
+                              "properties": {}
+                           }
+                        }
+                     },
+                     "example": {
+                        "withOptional": true,
+                        "limit": 10,
+                        "offset": 0,
+                        "sort": "id",
+                        "where": {}
+                     }
+                  }
+               }
+            },
+            "tags": ["data"],
+            "parameters": [
+               {
+                  "name": "entity",
+                  "in": "path",
+                  "required": true,
+                  "schema": {
+                     "anyOf": [
+                        {
+                           "type": "string",
+                           "enum": ["test", "items", "media"]
+                        },
+                        {
+                           "type": "string"
+                        }
+                     ]
+                  }
+               }
+            ]
+         }
+      },
+      "/api/data/info/{entity}": {
+         "get": {
+            "responses": {
+               "200": {
+                  "description": "Success"
+               }
+            },
+            "operationId": "getApiDataInfoByEntity",
+            "summary": "Retrieve entity info",
+            "tags": ["data"],
+            "parameters": [
+               {
+                  "name": "entity",
+                  "in": "path",
+                  "required": true,
+                  "schema": {
+                     "anyOf": [
+                        {
+                           "type": "string",
+                           "enum": ["test", "items", "media"]
+                        },
+                        {
+                           "type": "string"
+                        }
+                     ]
+                  }
+               }
+            ]
+         }
+      },
+      "/api/media/files": {
+         "get": {
+            "responses": {
+               "200": {
+                  "description": "Success"
+               }
+            },
+            "operationId": "getApiMediaFiles",
+            "summary": "Get the list of files",
+            "tags": ["media"]
+         }
+      },
+      "/api/media/file/{filename}": {
+         "get": {
+            "responses": {
+               "200": {
+                  "description": "Success"
+               }
+            },
+            "operationId": "getApiMediaFileByFilename",
+            "summary": "Get a file by name",
+            "tags": ["media"]
+         },
+         "delete": {
+            "responses": {
+               "200": {
+                  "description": "Success"
+               }
+            },
+            "operationId": "deleteApiMediaFileByFilename",
+            "summary": "Delete a file by name",
+            "tags": ["media"]
+         }
+      },
+      "/api/media/inspect": {
+         "post": {
+            "responses": {
+               "200": {
+                  "description": "Success"
+               }
+            },
+            "operationId": "postApiMediaInspect",
+            "summary": "Inspect a file",
+            "tags": ["media"]
+         }
+      },
+      "/api/media/upload/{filename}": {
+         "post": {
+            "responses": {
+               "200": {
+                  "description": "Success"
+               }
+            },
+            "operationId": "postApiMediaUploadByFilename",
+            "summary": "Upload a file",
+            "tags": ["media"],
+            "requestBody": {
+               "content": {
+                  "multipart/form-data": {
+                     "schema": {
+                        "type": "object",
+                        "properties": {
+                           "file": {
+                              "type": "string",
+                              "format": "binary"
+                           }
+                        },
+                        "required": ["file"]
+                     }
+                  },
+                  "application/octet-stream": {
+                     "schema": {
+                        "type": "string",
+                        "format": "binary"
+                     }
+                  }
+               }
+            },
+            "parameters": [
+               {
+                  "name": "filename",
+                  "in": "path",
+                  "schema": {
+                     "type": "string"
+                  }
+               }
+            ]
+         }
+      },
+      "/api/media/entity/{entity}/{id}/{field}": {
+         "post": {
+            "responses": {
+               "200": {
+                  "description": "Success"
+               }
+            },
+            "operationId": "postApiMediaEntityByEntityByIdByField",
+            "summary": "Add a file to an entity",
+            "tags": ["media"],
+            "requestBody": {
+               "content": {
+                  "multipart/form-data": {
+                     "schema": {
+                        "type": "object",
+                        "properties": {
+                           "file": {
+                              "type": "string",
+                              "format": "binary"
+                           }
+                        },
+                        "required": ["file"]
+                     }
+                  },
+                  "application/octet-stream": {
+                     "schema": {
+                        "type": "string",
+                        "format": "binary"
+                     }
+                  }
+               }
+            },
+            "parameters": [
+               {
+                  "name": "entity",
+                  "in": "path",
+                  "required": true,
+                  "schema": {
+                     "anyOf": [
+                        {
+                           "type": "string",
+                           "enum": ["test", "items", "media"]
+                        },
+                        {
+                           "type": "string"
+                        }
+                     ]
+                  }
+               },
+               {
+                  "name": "id",
+                  "in": "path",
+                  "required": true,
+                  "schema": {
+                     "anyOf": [
+                        {
+                           "type": "number"
+                        },
+                        {
+                           "type": "string"
+                        }
+                     ]
+                  }
+               },
+               {
+                  "name": "field",
+                  "in": "path",
+                  "required": true,
+                  "schema": {
+                     "type": "string"
+                  }
+               },
+               {
+                  "name": "overwrite",
+                  "in": "query",
+                  "schema": {
+                     "type": "boolean"
+                  }
+               }
+            ]
+         }
+      },
+      "/api/system/config/raw": {
+         "get": {
+            "responses": {
+               "200": {
+                  "description": "Success"
+               }
+            },
+            "operationId": "getApiSystemConfigRaw",
+            "summary": "Get the raw config",
+            "tags": ["system"]
+         }
+      },
+      "/api/system/config/{module}": {
+         "get": {
+            "responses": {
+               "200": {
+                  "description": "Success"
+               }
+            },
+            "operationId": "getApiSystemConfigByModule",
+            "summary": "Get the config for a module",
+            "tags": ["system"],
+            "parameters": [
+               {
+                  "name": "module",
+                  "in": "path",
+                  "schema": {
+                     "type": "string",
+                     "enum": ["server", "data", "auth", "media", "flows"]
+                  }
+               },
+               {
+                  "name": "secrets",
+                  "in": "query",
+                  "schema": {
+                     "type": "boolean"
+                  }
+               }
+            ]
+         }
+      },
+      "/api/system/schema/{module}": {
+         "get": {
+            "responses": {
+               "200": {
+                  "description": "Success"
+               }
+            },
+            "operationId": "getApiSystemSchemaByModule",
+            "summary": "Get the schema for a module",
+            "tags": ["system"],
+            "parameters": [
+               {
+                  "name": "config",
+                  "in": "query",
+                  "schema": {
+                     "type": "boolean"
+                  }
+               },
+               {
+                  "name": "secrets",
+                  "in": "query",
+                  "schema": {
+                     "type": "boolean"
+                  }
+               },
+               {
+                  "name": "fresh",
+                  "in": "query",
+                  "schema": {
+                     "type": "boolean"
+                  }
+               }
+            ]
+         }
+      },
+      "/api/system/build": {
+         "post": {
+            "responses": {
+               "200": {
+                  "description": "Success"
+               }
+            },
+            "operationId": "postApiSystemBuild",
+            "summary": "Build the app",
+            "tags": ["system"],
+            "parameters": [
+               {
+                  "name": "sync",
+                  "in": "query",
+                  "schema": {
+                     "type": "boolean"
+                  }
+               },
+               {
+                  "name": "fetch",
+                  "in": "query",
+                  "schema": {
+                     "type": "boolean"
+                  }
+               }
+            ]
+         }
+      },
+      "/api/system/ping": {
+         "get": {
+            "responses": {
+               "200": {
+                  "description": "Success"
+               }
+            },
+            "operationId": "getApiSystemPing",
+            "summary": "Ping the server",
+            "tags": ["system"]
+         }
+      },
+      "/api/system/info": {
+         "get": {
+            "responses": {
+               "200": {
+                  "description": "Success"
+               }
+            },
+            "operationId": "getApiSystemInfo",
+            "summary": "Get the server info",
+            "tags": ["system"]
+         }
+      }
+   }
+}

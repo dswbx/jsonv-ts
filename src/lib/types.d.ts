@@ -20,6 +20,7 @@ export type BaseJSONSchema = {
    readOnly?: boolean;
    writeOnly?: boolean;
    $comment?: string;
+   $defs?: { [key: string]: JSONSchemaDefinition };
 
    // Data types
    type?: JSONSchemaTypeName | JSONSchemaTypeName[];

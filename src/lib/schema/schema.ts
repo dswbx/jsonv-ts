@@ -49,7 +49,7 @@ export type StrictOptions<S extends ISchemaOptions, O extends S> = O & {
    [K in Exclude<keyof O, keyof S>]: never;
 };
 
-export interface IAnySchema extends IBaseSchemaOptions {
+export interface IAnySchema extends IBaseSchemaOptions, ISchemaFn {
    [schemaSymbol]: any;
    toJSON(): object;
 }
