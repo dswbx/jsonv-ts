@@ -187,7 +187,8 @@ export class Schema<
          ...opts,
          resolver: opts?.resolver || this.getResolver(),
          depth: opts?.depth ? opts.depth + 1 : 0,
-         dropUnknown: opts?.dropUnknown || false,
+         // should be removed in favor of additionalProperties
+         dropUnknown: opts?.dropUnknown ?? false,
       };
 
       const customCoerce = this[schemaSymbol].raw?.coerce;

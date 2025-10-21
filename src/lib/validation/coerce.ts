@@ -23,7 +23,8 @@ export function coerce(
    const ctx: Required<CoercionOptions> = {
       resolver: opts.resolver || new Resolver(s),
       depth: opts.depth || 0,
-      dropUnknown: opts.dropUnknown || false,
+      // should be removed in favor of additionalProperties
+      dropUnknown: opts.dropUnknown ?? false,
    };
 
    if (ctx.resolver.hasRef(s, value)) {

@@ -88,6 +88,7 @@ export class ObjectSchema<
    override readonly type = "object";
    properties: P;
    required: string[] | undefined;
+   //additionalProperties: Schema | undefined;
 
    constructor(properties: P, o?: O) {
       let required: string[] | undefined = [];
@@ -192,6 +193,24 @@ export class ObjectSchema<
                         // @ts-ignore
                         value[key] = property.coerce(v, opts);
                      }
+                  }
+               }
+
+               // additional properties (current hack)
+               // dropUnknown should be removed and rely on ap instead
+               // @ts-expect-error
+               const ap = this.additionalProperties as Schema | undefined;
+               if (
+                  opts?.dropUnknown !== true &&
+                  (!ap || ap.validate(null).valid)
+               ) {
+                  const v = isObject(_value) ? _value : {};
+                  const add_keys = Object.keys(v).filter(
+                     (key) => !propertyKeys.includes(key)
+                  );
+
+                  for (const key of add_keys) {
+                     value[key] = ap ? ap.coerce(v[key], opts) : v[key];
                   }
                }
 

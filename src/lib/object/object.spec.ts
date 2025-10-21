@@ -685,6 +685,19 @@ describe("object", () => {
          name: "John",
          age: 30,
       });
+
+      {
+         expect(
+            schema.coerce(
+               { name: "John", age: 30, unknown: "what" },
+               { dropUnknown: false }
+            )
+         ).toEqual({
+            name: "John",
+            age: 30,
+            unknown: "what",
+         });
+      }
    });
 
    test("template", () => {
