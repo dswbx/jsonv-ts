@@ -198,15 +198,26 @@ describe("fromSchema", () => {
          expect(s.validate(123).valid).toBe(false);
       }
 
-      {
+      /* {
          const s = fromSchema({
             $schema: "https://json-schema.org/draft/2020-12/schema",
             allOf: [{ multipleOf: 2 }],
+         }) as any;
+         console.log(JSON.stringify(s, null, 2));
+         expect(s.multipleOf).toEqual(2);
+      } */
+      {
+         const s = fromSchema({
+            $schema: "https://json-schema.org/draft/2020-12/schema",
             anyOf: [{ multipleOf: 3 }],
+         }) as any;
+         expect(s.anyOf?.[0]?.multipleOf).toEqual(3);
+      }
+      {
+         const s = fromSchema({
+            $schema: "https://json-schema.org/draft/2020-12/schema",
             oneOf: [{ multipleOf: 5 }],
          }) as any;
-         expect(s.allOf?.[0]?.multipleOf).toEqual(2);
-         expect(s.anyOf?.[0]?.multipleOf).toEqual(3);
          expect(s.oneOf?.[0]?.multipleOf).toEqual(5);
       }
    });

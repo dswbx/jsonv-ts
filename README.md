@@ -25,6 +25,8 @@
    -  [Any](#any)
    -  [From Schema](#from-schema)
    -  [Custom Schemas](#custom-schemas)
+-  [Utilities](#utilities)
+   -  [TypeScript Type Generation](#typescript-type-generation)
 -  [Hono Integration](#hono-integration)
    -  [Validator Middleware](#validator-middleware)
    -  [OpenAPI generation](#openapi-generation)
@@ -472,6 +474,66 @@ const alwaysTrue = schema(true);
 const alwaysFalse = schema(false);
 ```
 
+## Utilities
+
+### TypeScript Type Generation
+
+The `toTypes` utility function allows you to generate TypeScript type definitions from your schemas. This is useful for generating type files, documentation, or when you need to convert schemas to TypeScript interfaces.
+
+```ts
+import { toTypes, schemaToTypes, s } from "jsonv-ts";
+
+// Generate a type declaration
+const userSchema = s.object({
+   id: s.number(),
+   name: s.string(),
+   tags: s.array(s.string()).optional(),
+   status: s.string({ enum: ["active", "inactive"] }),
+});
+
+const typeDeclaration = toTypes(userSchema, "User");
+console.log(typeDeclaration);
+// type User = {
+//   id: number,
+//   name: string,
+//   tags?: string[]
+//   status: "active" | "inactive"
+// }
+
+// Generate an interface declaration
+const interfaceDeclaration = toTypes(userSchema, "User", { type: "interface" });
+console.log(interfaceDeclaration);
+// interface User {
+//   id: number,
+//   name: string,
+//   tags?: string[]
+//   status: "active" | "inactive"
+// }
+```
+
+You can also use `schemaToTypes` directly to get just the type definition without the declaration:
+
+```ts
+const typeDefinition = schemaToTypes(userSchema);
+console.log(typeDefinition);
+// {
+//   id: number,
+//   name: string,
+//   tags?: string[]
+//   status: "active" | "inactive"
+// }
+```
+
+The function supports various options for customization:
+
+```ts
+const customType = toTypes(userSchema, "User", {
+   indent: "    ", // Use 4 spaces for indentation
+   fallback: "any", // Use 'any' instead of 'unknown' for unknown types
+   type: "interface", // Generate interface instead of type
+});
+```
+
 ## Hono Integration
 
 ### Validator Middleware
@@ -702,11 +764,11 @@ const result = schema.validate({ id: 1, username: "valid_user" });
 
 **Validation Status**
 
-- Total tests: 1912
-- Passed: 1414 (73.95%)
-- Skipped: 444 (23.22%)
+- Total tests: 1930
+- Passed: 1430 (74.09%)
+- Skipped: 446 (23.11%)
 - Failed: 0 (0.00%)
-- Optional failed: 54 (2.82%)
+- Optional failed: 54 (2.80%)
 
 Todo:
 
@@ -715,7 +777,7 @@ Todo:
 -  [ ] `contentMediaType`, `contentSchema` and `contentEncoding`
 -  [ ] meta schemas and `vocabulary`
 -  [ ] Additional optional formats: `idn-email`, `idn-hostname`, `iri`, `iri-reference`
--  [ ] Custom formats
+-  [x] Custom formats
 
 #### Using Standard Schema
 

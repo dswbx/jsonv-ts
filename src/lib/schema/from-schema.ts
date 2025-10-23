@@ -126,6 +126,5 @@ export function fromSchema<Type = unknown>(_schema: any): AnySchema<Type> {
       }
    }
 
-   //console.log("--fallback", { schema });
    return lib.any(schema as any);
 }

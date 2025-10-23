@@ -352,7 +352,7 @@ class BooleanSchema<B extends boolean> extends Schema<
    ISchemaOptions,
    B extends true ? unknown : never
 > {
-   constructor(private bool: B) {
+   constructor(public bool: B) {
       super();
    }
 
