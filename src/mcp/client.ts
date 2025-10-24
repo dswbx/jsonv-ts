@@ -68,6 +68,9 @@ export class McpClient {
          headers,
          body: JSON.stringify(message),
       });
+      if (!res.ok) {
+         throw new Error(`HTTP ${res.status} ${res.statusText}`);
+      }
 
       if (!this.sessionId) {
          this.sessionId = res.headers.get("Mcp-Session-Id") ?? undefined;

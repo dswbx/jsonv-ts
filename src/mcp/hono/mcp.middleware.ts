@@ -29,7 +29,7 @@ export interface McpOptionsBase {
    };
    endpoint?: {
       transport?: "streamableHttp";
-      path: `/${string}`;
+      path?: `/${string}`;
       _init?: RequestInit;
    };
 }
@@ -46,14 +46,14 @@ export interface McpOptionsSetup extends McpOptionsBase {
 export type McpOptions = McpOptionsStatic | McpOptionsSetup;
 
 export const mcp = (opts: McpOptions): MiddlewareHandler => {
-   const mcpPath = opts?.endpoint?.path ?? "/sse";
+   const mcpPath = opts?.endpoint?.path;
    const sessions = new Map<string, McpServer>();
 
    return async (c: Context, next: Next) => {
       const path = c.req.path;
       let sessionId = c.req.header("Mcp-Session-Id");
 
-      if (mcpPath !== path) {
+      if (mcpPath && mcpPath !== path) {
          if (
             sessionId &&
             opts?.debug?.historyEndpoint &&
