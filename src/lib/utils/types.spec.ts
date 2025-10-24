@@ -20,8 +20,8 @@ describe("types", () => {
       });
 
       test("should handle boolean schemas", () => {
-         expect(schemaToTypes(s.booleanSchema(true))).toBe("true");
-         expect(schemaToTypes(s.booleanSchema(false))).toBe("false");
+         expect(schemaToTypes(s.booleanSchema(true))).toBe("any");
+         expect(schemaToTypes(s.booleanSchema(false))).toBe("never");
       });
 
       test("should handle enum values", () => {
@@ -95,7 +95,8 @@ describe("types", () => {
                type: s.literal("user"),
                numbers: s.anyOf([s.literal(1), s.literal(2), s.literal(3)]),
                alwaysTrue: s.literal(true),
-               alwaysTrue2: s.booleanSchema(true),
+               acceptAny: s.booleanSchema(true),
+               acceptNever: s.booleanSchema(false),
                age: s.number().optional(),
                nested: s.object({
                   name: s.string(),
@@ -113,7 +114,8 @@ describe("types", () => {
   type: "user",
   numbers: 1 | 2 | 3,
   alwaysTrue: true,
-  alwaysTrue2: true,
+  acceptAny: any,
+  acceptNever: never,
   age?: number,
   nested: {
     name: string,

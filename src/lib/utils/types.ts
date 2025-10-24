@@ -80,7 +80,7 @@ export function schemaToTypes(
    } else if ("oneOf" in schema && Array.isArray(schema.oneOf)) {
       return schema.oneOf.map((s) => schemaToTypes(s)).join(" | ");
    } else if (isBooleanSchema(schema)) {
-      return schema.toJSON() ? "true" : "false";
+      return schema.toJSON() ? "any" : "never";
    }
 
    if ("const" in schema && typeof schema.const !== "undefined") {
