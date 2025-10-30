@@ -158,25 +158,28 @@ export class McpServer<
       };
    }
 
+   parseMessage(payload: TRpcRawRequest) {
+      // @todo: parse message
+      if (!RpcMessage.isValidMessage(payload)) {
+         throw new McpError("ParseError", {
+            payload,
+         });
+      }
+
+      return this.messages.find((m) => m.is(payload));
+   }
+
    async handle(payload: TRpcRawRequest, raw?: unknown): Promise<TRpcResponse> {
       try {
          this.console.debug("payload", payload);
-
-         // @todo: parse message
-         if (!RpcMessage.isValidMessage(payload)) {
-            throw new McpError("ParseError", {
-               payload,
-            });
-         }
-
          this.currentId = payload.id;
 
          if (this.currentId) {
             if (this.history.has(this.currentId)) {
-               this.console.warning("duplicate request", this.currentId);
+               /* this.console.warning("duplicate request", this.currentId);
                throw new McpError("InvalidRequest", {
                   error: "Duplicate request",
-               });
+               }); */
             } else {
                this.history.set(this.currentId, {
                   request: payload,
@@ -184,8 +187,16 @@ export class McpServer<
             }
          }
 
-         const message = this.messages.find((m) => m.is(payload));
+         const message = this.parseMessage(payload);
          if (message) {
+            if (message.isNotification()) {
+               if (!message.isSenderAllowed("client")) {
+                  throw new McpError("InvalidRequest", {
+                     error: "Notification not allowed",
+                  });
+               }
+            }
+
             const result = await message.respond(payload, raw);
             this.console.info("result", result);
 
