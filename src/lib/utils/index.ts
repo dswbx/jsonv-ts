@@ -86,37 +86,50 @@ export function invariant(
    }
 }
 
-// Simple cache for normalize function to avoid repeated expensive operations
-const normalizeCache = new WeakMap<object, unknown>();
+export function normalizeString(value: unknown) {
+   if (!isString(value)) return value;
+   return value.normalize("NFC");
+}
 
-export function normalize(value: unknown) {
-   // For primitive values, return as-is or do simple normalization
-   if (value === null || value === undefined) return value;
-   if (typeof value === "boolean" || typeof value === "number") return value;
-   if (isString(value)) {
-      return value.normalize("NFC");
+// borrowed from https://github.com/cfworker/cfworker/blob/main/packages/json-schema/src/deep-compare-strict.ts
+export function deepCompareStrict(a: any, b: any): boolean {
+   const typeofa = typeof a;
+   if (typeofa !== typeof b) {
+      return false;
    }
-
-   // For objects and arrays, use caching
-   if (isArray(value) || isObject(value)) {
-      const cached = normalizeCache.get(value as object);
-      if (cached !== undefined) return cached;
-
-      let result: unknown;
-      if (isArray(value)) {
-         result = value.map(normalize).sort();
-      } else {
-         const sortedEntries = Object.entries(value)
-            .sort(([a], [b]) => a.localeCompare(b))
-            .map(([k, v]) => [k, normalize(v)]);
-         result = Object.fromEntries(sortedEntries);
+   if (Array.isArray(a)) {
+      if (!Array.isArray(b)) {
+         return false;
       }
-
-      normalizeCache.set(value as object, result);
-      return result;
+      const length = a.length;
+      if (length !== b.length) {
+         return false;
+      }
+      for (let i = 0; i < length; i++) {
+         if (!deepCompareStrict(a[i], b[i])) {
+            return false;
+         }
+      }
+      return true;
    }
-
-   return value;
+   if (typeofa === "object") {
+      if (!a || !b) {
+         return a === b;
+      }
+      const aKeys = Object.keys(a);
+      const bKeys = Object.keys(b);
+      const length = aKeys.length;
+      if (length !== bKeys.length) {
+         return false;
+      }
+      for (const k of aKeys) {
+         if (!deepCompareStrict(a[k], b[k])) {
+            return false;
+         }
+      }
+      return true;
+   }
+   return a === b;
 }
 
 // lodash-es compatible `pick` with perfect type inference

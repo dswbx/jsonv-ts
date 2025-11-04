@@ -8,9 +8,10 @@ import {
    isNumber,
    isObject,
    isString,
-   normalize,
+   normalizeString,
    isSchema,
    isBooleanSchema,
+   deepCompareStrict,
 } from "../utils";
 import { error, makeOpts, tmpOpts, valid } from "../utils/details";
 import type { ValidationOptions } from "./validate";
@@ -64,23 +65,24 @@ export const _const = (
    _value: unknown,
    opts: Opts = {}
 ) => {
-   const constValue = JSON.stringify(normalize(_constValue));
-   const value = JSON.stringify(normalize(_value));
-   if (constValue !== value) {
-      return error(opts, "const", `Expected const: ${constValue}`, value);
+   if (!deepCompareStrict(_constValue, _value)) {
+      return error(opts, "const", `Expected const: ${_constValue}`, _value);
    }
    return valid();
 };
 
 export const _enum = (
-   { enum: _enumValues = [] }: { enum?: unknown[] },
+   { enum: enumValues = [] }: { enum?: unknown[] },
    _value: unknown,
    opts: Opts = {}
 ) => {
-   const enumValues = JSON.stringify(_enumValues.map(normalize));
-   const value = JSON.stringify(normalize(_value));
-   if (!enumValues.includes(value)) {
-      return error(opts, "enum", `Expected enum: ${enumValues}`, _value);
+   if (!enumValues.some((v) => deepCompareStrict(v, _value))) {
+      return error(
+         opts,
+         "enum",
+         `Expected enum: ${JSON.stringify(enumValues)}`,
+         _value
+      );
    }
    return valid();
 };
@@ -186,7 +188,7 @@ export const minLength = (
    opts: Opts = {}
 ) => {
    if (!isString(value)) return valid();
-   const normalizedValue = normalize(value);
+   const normalizedValue = normalizeString(value);
    const length = [...(normalizedValue as string)].length;
    if (length >= minLength) return valid();
    return error(
@@ -203,7 +205,7 @@ export const maxLength = (
    opts: Opts = {}
 ) => {
    if (!isString(value)) return valid();
-   const normalizedValue = normalize(value);
+   const normalizedValue = normalizeString(value);
    const length = [...(normalizedValue as string)].length;
    if (length <= maxLength) return valid();
    return error(
@@ -580,14 +582,23 @@ export const uniqueItems = (
    opts: Opts = {}
 ) => {
    if (!isArray(value) || !uniqueItems) return valid();
-   const normalizedValues = value.map(normalize);
-   if (
-      new Set(normalizedValues.map((v) => JSON.stringify(v))).size ===
-      value.length
-   ) {
-      return valid();
+
+   for (let i = 0; i < value.length; i++) {
+      const a = value[i];
+      for (let j = 0; j < value.length; j++) {
+         if (i === j) continue;
+         const b = value[j];
+         if (deepCompareStrict(a, b)) {
+            return error(
+               opts,
+               "uniqueItems",
+               `Duplicated items at index ${i} and ${j}`,
+               value
+            );
+         }
+      }
    }
-   return error(opts, "uniqueItems", "Expected array with unique items", value);
+   return valid();
 };
 
 export const contains = (
