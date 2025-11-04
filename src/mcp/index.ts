@@ -30,6 +30,8 @@ export {
    type McpOptionsStatic,
 } from "./hono/mcp.middleware";
 export {
+   rpc,
+   rpcNotification,
    type RpcMessage,
    type RpcNotification,
    type TRpcId,
