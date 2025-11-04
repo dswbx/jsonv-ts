@@ -52,6 +52,10 @@ describe("keywords", () => {
          expect(kw._const({ const: false }, true).valid).toBe(false);
          expect(kw._const({ const: null }, null).valid).toBe(true);
          expect(kw._const({ const: null }, undefined).valid).toBe(false);
+
+         // looks same, but isn't
+         expect(kw._const({ const: "ä" }, "ä").valid).toBe(true);
+         expect(kw._const({ const: "ä" }, "ä").valid).toBe(false);
       });
 
       test("enum", () => {
@@ -322,6 +326,14 @@ describe("keywords", () => {
          expect(
             kw.uniqueItems({ uniqueItems: true }, "not an array").valid
          ).toBe(true);
+
+         expect(kw.uniqueItems({ uniqueItems: true }, ["ä", "ä"]).valid).toBe(
+            false
+         );
+         // looks same, but isn't
+         expect(kw.uniqueItems({ uniqueItems: true }, ["ä", "ä"]).valid).toBe(
+            true
+         );
       });
 
       test("contains", () => {
