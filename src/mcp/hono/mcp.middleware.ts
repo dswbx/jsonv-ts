@@ -70,13 +70,11 @@ export const mcp = (opts: McpOptions): MiddlewareHandler => {
          let server: McpServer | undefined;
 
          if (opts?.sessionsEnabled) {
-            console.log("sessions", sessions.size);
             if (sessionId) {
                server = sessions.get(sessionId);
 
                if (c.req.method === "DELETE") {
                   sessions.delete(sessionId);
-                  console.log("deleted session", sessionId, sessions.size);
                }
             } else {
                sessionId = crypto.randomUUID();

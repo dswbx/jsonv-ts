@@ -85,9 +85,9 @@ export function streamableHttpTransport(
       const acceptsStream = request.headers
          .get("accept")
          ?.includes("text/event-stream");
-      const acceptsJson = request.headers
-         .get("accept")
-         ?.includes("application/json");
+      const acceptsJson =
+         request.headers.get("accept")?.includes("application/json") ??
+         request.headers.get("content-type") === "application/json";
 
       if (!acceptsStream && !acceptsJson) {
          return new Response("Not acceptable", { status: 406 });

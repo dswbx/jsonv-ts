@@ -75,6 +75,9 @@ describe("mcp schema", () => {
 
       const res = await app.request("/sse", {
          method: "POST",
+         headers: {
+            Accept: "application/json",
+         },
          body: JSON.stringify({
             jsonrpc: "2.0",
             id: 1,
@@ -89,6 +92,9 @@ describe("mcp schema", () => {
       {
          const res = await app.request("/sse", {
             method: "POST",
+            headers: {
+               Accept: "application/json",
+            },
             body: JSON.stringify({
                jsonrpc: "2.0",
                id: 2,
