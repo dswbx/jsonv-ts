@@ -59,7 +59,7 @@ export {
 } from "./validation/parse";
 export type { JSONSchemaDefinition, JSONSchema } from "./types";
 export { registerFormat, getFormats } from "./validation/format";
-export { toTypes, schemaToTypes } from "./utils/types";
+export { toDefinition, toTypes, schemaToTypes } from "./utils/types";
 
 import { object, strictObject, partialObject } from "./object/object";
 import { string } from "./string/string";

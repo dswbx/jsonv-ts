@@ -1,5 +1,5 @@
 import { describe, expect, test } from "bun:test";
-import { toTypes, schemaToTypes } from "./types";
+import { toTypes, schemaToTypes, toDefinition } from "./types";
 import * as s from "../";
 
 describe("types", () => {
@@ -270,6 +270,93 @@ describe("types", () => {
          expect(result).toBe(`interface User {
   name: string,
   age: number
+}`);
+      });
+
+      test("should generate records", () => {
+         const schema = s.object({
+            data: s.object({
+               entities: s.record(
+                  s.object({
+                     name: s.string(),
+                     config: s.object({
+                        label: s.string(),
+                     }),
+                  })
+               ),
+            }),
+         });
+
+         expect(toTypes(schema, "Schema")).toBe(`type Schema = {
+  data: {
+    entities: Record<string, {
+      name: string,
+      config: {
+        label: string
+      }
+    }>
+  }
+}`);
+      });
+
+      test("extract title", () => {
+         expect(toTypes(s.string())).toBe("type Schema = string");
+         expect(toTypes(s.string(), "CustomName")).toBe(
+            "type CustomName = string"
+         );
+         expect(toTypes(s.string({ title: "CustomTitle" }), "CustomName")).toBe(
+            "type CustomName = string"
+         );
+      });
+   });
+
+   describe("toDefinition", () => {
+      test("should generate definition", () => {
+         const entity = s.object(
+            {
+               name: s.string(),
+               config: s.object({
+                  label: s.string(),
+               }),
+            },
+            { title: "Data Entity" }
+         );
+         const entities = s.record(entity, { description: "The entities" });
+
+         const data = s.object(
+            {
+               entities,
+            },
+            { title: "Data" }
+         );
+
+         const schema = s.object(
+            {
+               data,
+            },
+            { title: "Schema", description: "The schema" }
+         );
+
+         expect(toDefinition(schema, undefined, { export: true }))
+            .toBe(`export type DataEntity = {
+  name: string,
+  config: {
+    label: string
+  }
+}
+
+export type Data = {
+  /**
+   * The entities
+   */
+  entities: Record<string, Data Entity>
+}
+
+/**
+ * The schema
+ */
+export type Schema = {
+  data: Data
 }`);
       });
    });
