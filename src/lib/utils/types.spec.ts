@@ -150,9 +150,7 @@ describe("types", () => {
 
       test("should handle empty objects", () => {
          const result = schemaToTypes(s.object({}));
-         expect(result).toBe(`{
-
-}`);
+         expect(result).toBe(`{}`);
       });
 
       test("should return empty string for non-schema input", () => {
@@ -349,7 +347,7 @@ export type Data = {
   /**
    * The entities
    */
-  entities: Record<string, Data Entity>
+  entities: Record<string, DataEntity>
 }
 
 /**
