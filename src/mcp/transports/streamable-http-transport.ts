@@ -50,6 +50,9 @@ export function streamableHttpTransport(
          keepalive: r.keepalive,
          mode: r.mode,
          signal: r.signal,
+         ...(r.body && r.body instanceof ReadableStream
+            ? { duplex: "half" }
+            : {}),
          ...opts?._init,
       });
    };
