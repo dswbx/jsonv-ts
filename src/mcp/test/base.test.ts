@@ -46,6 +46,10 @@ describe("mcp base", () => {
       // make a request to the server
       const request = new Request("http://localhost/sse", {
          method: "POST",
+         headers: {
+            // not adding accept, expecting to be handled gracefully
+            "Content-Type": "application/json",
+         },
          body: JSON.stringify({
             jsonrpc: "2.0",
             method: "resources/read",
@@ -103,6 +107,9 @@ describe("mcp base", () => {
 
       const res = await app.request("/sse", {
          method: "POST",
+         headers: {
+            Accept: "application/json",
+         },
          body: JSON.stringify({
             jsonrpc: "2.0",
             id: 1,

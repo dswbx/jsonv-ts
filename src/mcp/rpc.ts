@@ -49,6 +49,17 @@ export type TRpcMessageParams<T extends RpcMessage> = T extends RpcMessage<
    ? s.Static<P>
    : never;
 
+export const rpc = <Method extends string, Params extends object>(
+   method: Method,
+   params: Params,
+   id?: TRpcId
+): TRpcResponse<Params> => ({
+   jsonrpc: "2.0",
+   id,
+   method,
+   params,
+});
+
 export abstract class RpcMessage<
    Method extends string = string,
    Params extends s.Schema = s.Schema
@@ -65,6 +76,10 @@ export abstract class RpcMessage<
       } catch (e) {
          return false;
       }
+   }
+
+   isNotification(): this is RpcNotification {
+      return this.method.startsWith("notifications/");
    }
 
    is(message: TRpcRawRequest) {
@@ -96,7 +111,7 @@ export abstract class RpcMessage<
       raw?: unknown
    ): Promise<TRpcResponse>;
 
-   protected formatRespond<Result = object>(
+   protected formatRespond<Result extends object = object>(
       message: TRpcRequest,
       result: Result
    ): TRpcResponse<Result> {
@@ -105,6 +120,7 @@ export abstract class RpcMessage<
          id: message.id,
          result,
       };
+      return rpc(this.method, result, message.id as any);
    }
 }
 
@@ -117,10 +133,29 @@ export abstract class RpcNotification<
       super(server);
    }
 
-   abstract handle(message: TRpcRequest): Promise<void>;
+   abstract handle(
+      message: TRpcRequest | TRpcRawRequest,
+      raw?: unknown
+   ): Promise<void>;
 
-   override async respond(message: TRpcRequest) {
-      await this.handle(message);
+   allowedSenders() {
+      return ["client", "server"];
+   }
+
+   isSenderAllowed(sender: "client" | "server") {
+      return this.allowedSenders().includes(sender);
+   }
+
+   override async respond(
+      message: TRpcRequest | TRpcRawRequest,
+      raw?: unknown
+   ) {
+      await this.handle(message, raw);
       return null as any;
    }
 }
+
+export const rpcNotification = <Method extends string, Params extends object>(
+   params: Params,
+   method: Method = "notification/message" as Method
+) => rpc(method, params);

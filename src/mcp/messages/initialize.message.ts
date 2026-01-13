@@ -15,10 +15,21 @@ export class InitializeMessage extends RpcMessage {
       return this.formatRespond(message, {
          protocolVersion: this.server.version,
          capabilities: {
-            tools: this.server.tools.length > 0 ? {} : undefined,
-            resources: this.server.resources.length > 0 ? {} : undefined,
+            tools:
+               this.server.tools.length > 0
+                  ? {
+                       listChanged: true,
+                    }
+                  : undefined,
+            resources:
+               this.server.resources.length > 0
+                  ? {
+                       subscribe: true,
+                    }
+                  : undefined,
             logging: {},
             completions: {},
+            experimental: {},
          },
          serverInfo: this.server.serverInfo,
       });
@@ -28,8 +39,20 @@ export class InitializeMessage extends RpcMessage {
 export class InitializedNotificationMessage extends RpcNotification {
    method = "notifications/initialized";
 
-   override async handle(message: TRpcRequest) {
-      //return this.formatRespond(message, {});
-      //console.log("initialized", message);
+   override allowedSenders() {
+      return ["client"];
+   }
+
+   override async handle() {
+      /* setTimeout(() => {
+         this.server.onNotificationListener?.({
+            jsonrpc: "2.0",
+            method: "notification/progress",
+            params: {
+               message: "initialized",
+               progress: 100,
+            },
+         });
+      }, 2000); */
    }
 }
