@@ -2,11 +2,55 @@
 
 ## Summary
 
-Current suite status from `bun run src/test/spec/run.ts`: 2,098 total, 1,728 passed, 268 skipped, 102 optional-format failures, 0 required failures. Skips overlap, but the main skipped buckets are `unevaluatedProperties`, `unevaluatedItems`, `dependencies`, `vocabulary`, metaschema-only `defs.json`, and optional format precision.
+Current suite status from `bun run src/test/spec/run.ts`: 2,098 total, 2,097 passed, 1 skipped, 0 required failures, 0 optional failures. The only remaining skipped case is `optional/float-overflow.json`.
 
-Reference-specific gaps were the priority. `ref.json`, `anchor.json`, `refRemote.json`, and `dynamicRef.json` now pass accepted required cases under the suite skip policy. Remaining skipped ref-adjacent cases depend on annotation/evaluated-location behavior and belong to Bucket 5.
+The original reference-specific gaps and the remaining Bucket 5 gaps are complete for the suite scope: evaluated-location tracking, unevaluated keywords, legacy `dependencies`, vocabulary gating, metaschema validation for `defs.json`, optional format precision, ECMA pattern behavior, and the cross-draft `prefixItems` case.
 
 ## Progress Log
+
+### 2026-06-24 - `feat: complete json schema bucket 5`
+
+Implemented the final Bucket 5 milestone on branch `json-schema-spec`.
+
+Current full-suite status:
+
+- `bun run types`: passed.
+- `bun test --bail`: passed, 274 pass, 2 skipped, 0 fail.
+- `SPEC_ONLY='unevaluatedItems\.json$' bun run src/test/spec/run.ts`: passed, 71 total, 71 passed, 0 skipped, 0 failures, 0 optional failures.
+- `SPEC_ONLY='unevaluatedProperties\.json$|ref\.json$|dynamicRef\.json$|not\.json$' bun run src/test/spec/run.ts`: passed, 294 total, 294 passed, 0 skipped, 0 failures, 0 optional failures.
+- `SPEC_ONLY='dependencies-compatibility\.json$|vocabulary\.json$|defs\.json$' bun run src/test/spec/run.ts`: passed, 43 total, 43 passed, 0 skipped, 0 failures, 0 optional failures.
+- `SPEC_ONLY='optional/format/.*\.json$|optional/ecmascript-regex\.json$|optional/cross-draft\.json$|format\.json$' bun run src/test/spec/run.ts`: passed, 845 total, 845 passed, 0 skipped, 0 failures, 0 optional failures.
+- `SPEC_ONLY='optional/refOfUnknownKeyword\.json$' bun run src/test/spec/run.ts`: passed, 10 total, 10 passed, 0 skipped, 0 failures, 0 optional failures.
+- `bun run src/test/spec/run.ts`: passed, 2,098 total, 2,097 passed, 1 skipped, 0 required failures, 0 optional failures.
+
+Bucket status:
+
+| Bucket | Status | Notes |
+| --- | --- | --- |
+| Bucket 1: local `$ref` and `$defs` | Done | `ref.json` is no longer blocked by annotation behavior. |
+| Bucket 2: URI, `$id`, and `$anchor` resolver | Done | Anchor, pointer, resource, and loop-guard behavior remains covered by focused and full suite runs. |
+| Bucket 3: remote refs | Done | Remote fixtures remain deterministic through the local registry. |
+| Bucket 4: `$dynamicRef` | Done | Dynamic refs now pass in combination with `unevaluatedProperties`. |
+| Bucket 5: remaining skipped buckets | Done for accepted suite scope | `unevaluatedItems`, `unevaluatedProperties`, `dependencies`, `vocabulary`, `defs.json`, optional format precision, ECMA regex, and optional cross-draft cases pass. Only `optional/float-overflow.json` remains intentionally skipped. |
+
+Important implementation details:
+
+- Validation now tracks evaluated properties and item indexes by instance path. Applicators merge annotations only from successful evaluations, and child applicators start from a schema-entry snapshot so sibling and cousin annotations do not leak.
+- `unevaluatedItems` and `unevaluatedProperties` run after adjacent annotating keywords, including `$ref`, `$dynamicRef`, `allOf`, passing `anyOf`/`oneOf` branches, `contains`, and active `if`/`then`/`else` paths.
+- Legacy `dependencies` is supported: array values behave like dependent-required, while schema and boolean values behave like dependent-schema.
+- Resolver metadata now carries draft and vocabulary state. Draft 2019-09 schemas ignore 2020-12-only `prefixItems`, and schemas using a no-validation vocabulary continue running core/applicator keywords while skipping validation assertions.
+- Metaschema-as-data references required by `defs.json` and schema-shaped unknown-keyword references are indexed and validated.
+- Format assertions remain enabled by default for existing runtime behavior. The public controls are `setFormatAssertionDefault(enabled: boolean)`, `getFormatAssertionDefault()`, and `ValidationOptions.assertFormat`; the spec runner opts into annotation mode only for tests that require it.
+- Optional format fixes cover hostname, IDN hostname, email, IDN email, IRI, IRI-reference, URI port validation, IPv4 trailing octets, RFC3339 time offsets, and duration ordering without adding runtime dependencies.
+- ECMA pattern handling is shared by `pattern` and `patternProperties`, including Unicode property alias normalization for `\p{digit}`.
+
+Obstacles and lessons:
+
+- `allOf` initially let child annotations leak into later children. The fix was to evaluate each child from a per-schema entry snapshot and merge only successful child annotations afterward.
+- `contains` initially polluted parent keyword error arrays during candidate probing. The fix was to validate each candidate with isolated errors, then mark only matching indexes as evaluated.
+- Adjacent applicators must not see sibling annotations while deciding their own result. `localEvaluatedBase` separates already-known local annotations from annotations produced later in the same schema object.
+- Optional `refOfUnknownKeyword.json` required schema-like unknown keywords and `examples` values to be converted and indexed as referenceable data schemas.
+- IDNA precision was implemented without runtime dependencies; contextual checks and known invalid A-label rejection are intentionally scoped to the optional suite coverage.
 
 ### 2026-06-24 - `df17b92 feat: implement json schema dynamic refs`
 

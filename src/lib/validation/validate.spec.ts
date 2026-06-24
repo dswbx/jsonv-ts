@@ -332,6 +332,70 @@ describe("validate", () => {
       );
    });
 
+   test("$ref can target schema-shaped unknown keyword values", () => {
+      const schema = fromSchema({
+         "unknown-keyword": {
+            type: "integer",
+         },
+         properties: {
+            value: {
+               $ref: "#/unknown-keyword",
+            },
+         },
+      });
+
+      expect(schema.validate({ value: 1 }).valid).toBe(true);
+      expect(schema.validate({ value: "1" }).valid).toBe(false);
+   });
+
+   test("unevaluatedProperties sees allOf annotations but not cousin annotations", () => {
+      const schema = fromSchema({
+         allOf: [
+            {
+               properties: {
+                  foo: true,
+               },
+            },
+         ],
+         unevaluatedProperties: false,
+      });
+
+      expect(schema.validate({ foo: 1 }).valid).toBe(true);
+      expect(schema.validate({ foo: 1, bar: 2 }).valid).toBe(false);
+
+      const cousin = fromSchema({
+         allOf: [
+            {
+               properties: {
+                  foo: true,
+               },
+            },
+            {
+               unevaluatedProperties: false,
+            },
+         ],
+      });
+
+      expect(cousin.validate({ foo: 1 }).valid).toBe(false);
+   });
+
+   test("legacy dependencies validates required and schema dependencies", () => {
+      const schema = fromSchema({
+         dependencies: {
+            bar: ["foo"],
+            baz: {
+               properties: {
+                  baz: { type: "integer" },
+               },
+            },
+         },
+      });
+
+      expect(schema.validate({ foo: 1, bar: 2, baz: 3 }).valid).toBe(true);
+      expect(schema.validate({ bar: 2 }).valid).toBe(false);
+      expect(schema.validate({ baz: "3" }).valid).toBe(false);
+   });
+
    test("ref", () => {
       const schema = s.object({
          foo: s.refId("#").optional(),

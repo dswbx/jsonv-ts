@@ -47,24 +47,9 @@ type SkipFn = (ctx: {
 const skips: SkipFn[] = [
    ({ schema, file }) =>
       [
-         // evaluation
-         "dependencies",
-         "unevaluatedItems",
-         "unevaluatedProperties",
-         // meta
-         "vocabulary",
-         "defs.json",
          // misc
          "float-overflow",
       ].some((k) => file.includes(k) || recurisvelyHasKeys(schema, [k])),
-
-   // skip specific tests
-   ({ test }) =>
-      (test &&
-         ["is only an annotation by default"].some((s) =>
-            test.description.includes(s)
-         )) ||
-      false,
 ];
 
 const abort_early = true;
@@ -105,7 +90,11 @@ for (const testSuite of tests) {
                continue;
             }
             try {
-               const result = schema.validate(test.data);
+               const result = schema.validate(test.data, {
+                  assertFormat: !test.description.includes(
+                     "is only an annotation by default"
+                  ),
+               });
                if (result.valid !== test.valid) {
                   throw result;
                }

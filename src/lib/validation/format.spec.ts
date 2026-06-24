@@ -2,7 +2,9 @@ import { test, expect, describe } from "bun:test";
 import {
    format as $format,
    getFormats,
+   getFormatAssertionDefault,
    registerFormat,
+   setFormatAssertionDefault,
    unregisterFormat,
 } from "./format";
 
@@ -47,8 +49,23 @@ describe("format", () => {
          [1, true],
          ["test@example.com", true],
          ["~test@example.com", true],
-         //['"joe bloggs"@example.com', true],
+         ['"joe bloggs"@example.com', true],
       ]);
+   });
+
+   test("format assertion can be disabled", () => {
+      expect(format("email", "not an email").valid).toBe(false);
+      expect(
+         $format({ format: "email" }, "not an email", {
+            assertFormat: false,
+         }).valid
+      ).toBe(true);
+
+      const original = getFormatAssertionDefault();
+      setFormatAssertionDefault(false);
+      expect(format("email", "not an email").valid).toBe(true);
+      setFormatAssertionDefault(original);
+      expect(format("email", "not an email").valid).toBe(false);
    });
 
    test("register format", () => {

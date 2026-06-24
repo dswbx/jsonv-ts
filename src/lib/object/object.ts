@@ -65,6 +65,8 @@ export interface IObjectOptions extends ISchemaOptions {
    $defs?: Record<string, Schema>;
    patternProperties?: Record<string, Schema>;
    additionalProperties?: Schema | false;
+   unevaluatedProperties?: Schema | false;
+   dependencies?: Record<string, Schema | string[]>;
    required?: string[];
    minProperties?: number;
    maxProperties?: number;

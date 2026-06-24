@@ -14,10 +14,23 @@ import {
    deepCompareStrict,
 } from "../utils";
 import { error, makeOpts, tmpOpts, valid } from "../utils/details";
-import type { ValidationOptions } from "./validate";
+import {
+   cloneEvaluated,
+   evaluatedItems,
+   evaluatedProperties,
+   markEvaluatedItem,
+   markEvaluatedProperty,
+   mergeEvaluated,
+   type ValidationOptions,
+} from "./validate";
 
 export type KeywordResult = string | boolean;
 type Opts = ValidationOptions;
+
+function ecmaPattern(pattern: string | RegExp): RegExp {
+   if (pattern instanceof RegExp) return pattern;
+   return new RegExp(pattern.replace(/\\p\{digit\}/gi, "\\p{Decimal_Number}"), "u");
+}
 
 /**
  * Default keywords
@@ -92,9 +105,17 @@ export function matches<T extends Schema[]>(
    value: unknown,
    opts: Opts = {}
 ): Schema[] {
-   return schemas
-      .map((s) => (s.validate(value, tmpOpts(opts)).valid ? s : undefined))
-      .filter(Boolean) as Schema[];
+   return schemas.filter((schema) => {
+      const branch = tmpOpts({
+         ...opts,
+         evaluated: cloneEvaluated(opts.evaluated),
+      });
+      const result = schema.validate(value, branch);
+      if (result.valid && opts.evaluated && branch.evaluated) {
+         mergeEvaluated(opts.evaluated, branch.evaluated);
+      }
+      return result.valid;
+   }) as T;
 }
 
 export const anyOf = (
@@ -102,7 +123,19 @@ export const anyOf = (
    value: unknown,
    opts: Opts = {}
 ) => {
-   if (matches(anyOf, value, opts).length > 0) return valid();
+   const base = cloneEvaluated(opts.localEvaluatedBase || opts.evaluated);
+   let count = 0;
+   for (const schema of anyOf) {
+      const branch = tmpOpts({ ...opts, evaluated: cloneEvaluated(base) });
+      const result = schema.validate(value, branch);
+      if (result.valid) {
+         count++;
+         if (opts.evaluated && branch.evaluated) {
+            mergeEvaluated(opts.evaluated, branch.evaluated);
+         }
+      }
+   }
+   if (count > 0) return valid();
    return error(opts, "anyOf", "Expected at least one to match", value);
 };
 
@@ -111,7 +144,23 @@ export const oneOf = (
    value: unknown,
    opts: Opts = {}
 ) => {
-   if (matches(oneOf, value).length === 1) return valid();
+   const base = cloneEvaluated(opts.localEvaluatedBase || opts.evaluated);
+   let match: ValidationOptions | undefined;
+   let count = 0;
+   for (const schema of oneOf) {
+      const branch = tmpOpts({ ...opts, evaluated: cloneEvaluated(base) });
+      const result = schema.validate(value, branch);
+      if (result.valid) {
+         count++;
+         match = branch;
+      }
+   }
+   if (count === 1) {
+      if (opts.evaluated && match?.evaluated) {
+         mergeEvaluated(opts.evaluated, match.evaluated);
+      }
+      return valid();
+   }
    return error(opts, "oneOf", "Expected exactly one to match", value);
 };
 
@@ -120,8 +169,25 @@ export const allOf = (
    value: unknown,
    opts: Opts = {}
 ) => {
-   if (matches(allOf, value, opts).length === allOf.length) return valid();
-   return error(opts, "allOf", "Expected all to match", value);
+   const base = cloneEvaluated(opts.localEvaluatedBase || opts.evaluated);
+   const branches: ValidationOptions[] = [];
+   for (const schema of allOf) {
+      const branch = tmpOpts({
+         ...opts,
+         evaluated: cloneEvaluated(base),
+      });
+      const result = schema.validate(value, branch);
+      if (!result.valid) {
+         return error(opts, "allOf", "Expected all to match", value);
+      }
+      branches.push(branch);
+   }
+   for (const branch of branches) {
+      if (opts.evaluated && branch.evaluated) {
+         mergeEvaluated(opts.evaluated, branch.evaluated);
+      }
+   }
+   return valid();
 };
 
 export const not = (
@@ -132,7 +198,14 @@ export const not = (
    // not spec relevant, but if no value given, it's always valid
    if (value === undefined) return valid();
 
-   if (isSchema(not) && not.validate(value, opts).valid) {
+   if (
+      isSchema(not) &&
+      not.validate(value, {
+         ...opts,
+         errors: [],
+         evaluated: cloneEvaluated(opts.localEvaluatedBase || opts.evaluated),
+      }).valid
+   ) {
       return error(opts, "not", "Expected not to match", value);
    }
    return valid();
@@ -147,8 +220,15 @@ export const ifThenElse = (
    value: unknown,
    opts: Opts = {}
 ) => {
-   if (_if && (_then || _else)) {
-      if (_if.validate(value, tmpOpts(opts)).valid) {
+   if (_if) {
+      const ifOpts = tmpOpts({
+         ...opts,
+         evaluated: cloneEvaluated(opts.localEvaluatedBase || opts.evaluated),
+      });
+      if (_if.validate(value, ifOpts).valid) {
+         if (opts.evaluated && ifOpts.evaluated) {
+            mergeEvaluated(opts.evaluated, ifOpts.evaluated);
+         }
          if (_then) {
             return _then.validate(value, tmpOpts(opts));
          }
@@ -169,11 +249,7 @@ export const pattern = (
    opts: Opts = {}
 ) => {
    if (!isString(value)) return valid();
-   if (pattern instanceof RegExp) {
-      if (pattern.test(value)) return valid();
-   } else {
-      if (new RegExp(pattern, "u").test(value)) return valid();
-   }
+   if (ecmaPattern(pattern).test(value)) return valid();
    return error(
       opts,
       "pattern",
@@ -323,6 +399,7 @@ export const properties = (
          makeOpts(opts, ["properties", key], key)
       );
       if (!result.valid) return result;
+      markEvaluatedProperty(opts, key);
    }
    return valid();
 };
@@ -350,7 +427,7 @@ export const additionalProperties = (
    const pattern = isObject(patternProperties)
       ? Object.keys(value).filter((key) =>
            Object.keys(patternProperties).some((pattern) =>
-              new RegExp(pattern).test(key)
+              ecmaPattern(pattern).test(key)
            )
         )
       : [];
@@ -360,6 +437,7 @@ export const additionalProperties = (
    if (extra.length > 0) {
       if (isBooleanSchema(additionalProperties)) {
          if (additionalProperties.toJSON() === true) {
+            for (const key of extra) markEvaluatedProperty(opts, key);
             return valid();
          }
          const extraObj = extra.reduce((acc, key) => {
@@ -380,7 +458,38 @@ export const additionalProperties = (
                makeOpts(opts, ["additionalProperties"], key)
             );
             if (!result.valid) return result;
+            markEvaluatedProperty(opts, key);
          }
+      }
+   }
+   return valid();
+};
+
+export const dependencies = (
+   { dependencies }: { dependencies?: Record<string, Schema | string[]> },
+   value: unknown,
+   opts: Opts = {}
+) => {
+   if (!isObject(value) || !isObject(dependencies)) return valid();
+   const keys = Object.keys(value).filter(
+      (key) => typeof value[key] !== "function"
+   );
+   for (const [key, dependency] of Object.entries(dependencies)) {
+      if (!keys.includes(key)) continue;
+      if (Array.isArray(dependency)) {
+         for (const dep of dependency) {
+            if (!keys.includes(dep)) {
+               return error(
+                  opts,
+                  "dependencies",
+                  `Expected dependent required property ${dep}`,
+                  value
+               );
+            }
+         }
+      } else if (isSchema(dependency)) {
+         const result = dependency.validate(value, opts);
+         if (!result.valid) return result;
       }
    }
    return valid();
@@ -494,14 +603,58 @@ export const patternProperties = (
 
    for (const [_key, _value] of Object.entries(value)) {
       for (const [pattern, schema] of Object.entries(patternProperties)) {
-         if (new RegExp(pattern, "u").test(_key)) {
+         if (ecmaPattern(pattern).test(_key)) {
             const result = schema.validate(
                _value,
                makeOpts(opts, ["patternProperties"], _key)
             );
             if (!result.valid) return result;
+            markEvaluatedProperty(opts, _key);
          }
       }
+   }
+   return valid();
+};
+
+export const unevaluatedProperties = (
+   { unevaluatedProperties }: { unevaluatedProperties?: Schema | false },
+   value: unknown,
+   opts: Opts = {}
+) => {
+   if (!isObject(value) || unevaluatedProperties === undefined) return valid();
+   if (!isSchema(unevaluatedProperties)) {
+      throw new InvalidTypeError(
+         "unevaluatedProperties must be a boolean or managed schema"
+      );
+   }
+   const evaluated = evaluatedProperties(opts);
+   const unevaluated = Object.keys(value).filter((key) => !evaluated.has(key));
+   if (unevaluated.length === 0) return valid();
+
+   if (isBooleanSchema(unevaluatedProperties)) {
+      if (unevaluatedProperties.toJSON() === true) {
+         for (const key of unevaluated) markEvaluatedProperty(opts, key);
+         return valid();
+      }
+      const extraObj = unevaluated.reduce((acc, key) => {
+         acc[key] = value[key];
+         return acc;
+      }, {} as Record<string, unknown>);
+      return error(
+         opts,
+         "unevaluatedProperties",
+         "Unevaluated properties are not allowed",
+         extraObj
+      );
+   }
+
+   for (const key of unevaluated) {
+      const result = unevaluatedProperties.validate(
+         value[key],
+         makeOpts(opts, ["unevaluatedProperties"], key)
+      );
+      if (!result.valid) return result;
+      markEvaluatedProperty(opts, key);
    }
    return valid();
 };
@@ -538,12 +691,14 @@ export const items = (
       throw new InvalidTypeError("items must be a managed schema");
    }
    // skip prefix items
-   for (const [index, item] of value.slice(prefixItems.length).entries()) {
+   for (const [offset, item] of value.slice(prefixItems.length).entries()) {
+      const index = prefixItems.length + offset;
       const result = items.validate(
          item,
          makeOpts(opts, ["items"], String(index))
       );
       if (!result.valid) return result;
+      markEvaluatedItem(opts, index);
    }
    return valid();
 };
@@ -614,7 +769,23 @@ export const contains = (
       throw new Error("contains must be a managed schema");
    }
    if (!isArray(value)) return valid();
-   const occ = value.filter((item) => contains.validate(item).valid).length;
+   const matched: number[] = [];
+   for (const [index, item] of value.entries()) {
+      const result = contains.validate(
+         item,
+         makeOpts(
+            {
+               ...opts,
+               errors: [],
+               evaluated: cloneEvaluated(opts.evaluated),
+            },
+            ["contains"],
+            String(index)
+         )
+      );
+      if (result.valid) matched.push(index);
+   }
+   const occ = matched.length;
    if (occ < (minContains ?? 1)) {
       return error(
          opts,
@@ -633,6 +804,7 @@ export const contains = (
          value
       );
    }
+   for (const index of matched) markEvaluatedItem(opts, index);
    return valid();
 };
 
@@ -650,6 +822,48 @@ export const prefixItems = (
       if (result && result?.valid !== true) {
          return result;
       }
+      if (result?.valid === true) markEvaluatedItem(opts, i);
+   }
+   return valid();
+};
+
+export const unevaluatedItems = (
+   { unevaluatedItems }: { unevaluatedItems?: Schema | false },
+   value: unknown,
+   opts: Opts = {}
+) => {
+   if (!isArray(value) || unevaluatedItems === undefined) return valid();
+   if (!isSchema(unevaluatedItems)) {
+      throw new InvalidTypeError(
+         "unevaluatedItems must be a boolean or managed schema"
+      );
+   }
+   const evaluated = evaluatedItems(opts);
+   const unevaluated = value
+      .map((_, index) => index)
+      .filter((index) => !evaluated.has(index));
+   if (unevaluated.length === 0) return valid();
+
+   if (isBooleanSchema(unevaluatedItems)) {
+      if (unevaluatedItems.toJSON() === true) {
+         for (const index of unevaluated) markEvaluatedItem(opts, index);
+         return valid();
+      }
+      return error(
+         opts,
+         "unevaluatedItems",
+         "Unevaluated items are not allowed",
+         unevaluated.map((index) => value[index])
+      );
+   }
+
+   for (const index of unevaluated) {
+      const result = unevaluatedItems.validate(
+         value[index],
+         makeOpts(opts, ["unevaluatedItems"], String(index))
+      );
+      if (!result.valid) return result;
+      markEvaluatedItem(opts, index);
    }
    return valid();
 };

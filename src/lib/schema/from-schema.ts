@@ -24,6 +24,40 @@ function eachObject<T>(
    ) as Record<string, T>;
 }
 
+const schemaKeys = new Set([
+   "$id",
+   "$ref",
+   "$schema",
+   "$anchor",
+   "$dynamicAnchor",
+   "$dynamicRef",
+   "type",
+   "properties",
+   "patternProperties",
+   "additionalProperties",
+   "unevaluatedProperties",
+   "items",
+   "prefixItems",
+   "unevaluatedItems",
+   "contains",
+   "allOf",
+   "anyOf",
+   "oneOf",
+   "not",
+   "if",
+   "then",
+   "else",
+   "required",
+   "dependentRequired",
+   "dependentSchemas",
+   "dependencies",
+   "$defs",
+]);
+
+function looksLikeSchema(value: unknown): value is Record<string, unknown> {
+   return isObject(value) && Object.keys(value).some((key) => schemaKeys.has(key));
+}
+
 export type AnySchema<Type = unknown> = lib.Schema<any, Type> &
    JSONSchema<lib.Schema> &
    lib.ISchemaFn;
@@ -73,10 +107,18 @@ export function fromSchema<Type = unknown>(_schema: any): AnySchema<Type> {
       }
    }
 
+   if ("dependencies" in schema && schema.dependencies) {
+      schema.dependencies = eachObject(schema.dependencies, (value) =>
+         Array.isArray(value) ? value : fromSchema(value)
+      );
+   }
+
    const schemaize = [
       "additionalProperties",
+      "unevaluatedProperties",
       "items",
       "prefixItems",
+      "unevaluatedItems",
       "propertyNames",
       "contains",
       "not",
@@ -100,6 +142,30 @@ export function fromSchema<Type = unknown>(_schema: any): AnySchema<Type> {
          // @ts-ignore
          const { [union]: _schemas } = schema;
          schema[union] = eachArray(_schemas, fromSchema);
+      }
+   }
+
+   for (const [key, value] of Object.entries(schema)) {
+      if (
+         key === "const" ||
+         key === "enum" ||
+         key === "default" ||
+         schemaize.includes(key) ||
+         records.includes(key) ||
+         key === "properties" ||
+         key === "dependencies" ||
+         key === "anyOf" ||
+         key === "oneOf" ||
+         key === "allOf"
+      ) {
+         continue;
+      }
+      if (looksLikeSchema(value)) {
+         schema[key] = fromSchema(value);
+      } else if (Array.isArray(value)) {
+         schema[key] = value.map((item) =>
+            looksLikeSchema(item) ? fromSchema(item) : item
+         );
       }
    }
 

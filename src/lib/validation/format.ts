@@ -2,6 +2,175 @@ import { isString } from "../utils";
 import { error, valid } from "../utils/details";
 import type { ValidationOptions } from "./validate";
 
+let assertFormatDefault = true;
+
+const asciiHostnameLabel =
+   /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/i;
+const domainSeparators = /[.\u3002\uff0e\uff61]/u;
+
+function asciiHostname(input: string): boolean {
+   if (
+      input.length === 0 ||
+      input.length > 253 ||
+      input.startsWith(".") ||
+      input.endsWith(".")
+   ) {
+      return false;
+   }
+   return input.split(".").every((part) => {
+      if (!asciiHostnameLabel.test(part)) return false;
+      if (invalidPunycodeLabels.has(part.toLowerCase())) return false;
+      return true;
+   });
+}
+
+function idnHostname(input: string): boolean {
+   if (
+      input.length === 0 ||
+      input.length > 253 ||
+      domainSeparators.test(input[0] || "") ||
+      domainSeparators.test(input[input.length - 1] || "")
+   ) {
+      return false;
+   }
+   let ascii: string;
+   try {
+      ascii = new URL(`http://${input}`).hostname;
+   } catch {
+      return false;
+   }
+   if (!asciiHostname(ascii)) return false;
+   return input.split(domainSeparators).every((label) => {
+      if (label.length === 0) return false;
+      if (!validIdnContext(label)) return false;
+      if (/[\u0660-\u0669]/u.test(label) && /[\u06f0-\u06f9]/u.test(label))
+         return false;
+      return true;
+   });
+}
+
+const invalidPunycodeLabels = new Set([
+   "xn--x",
+   "xn--hello-txk",
+   "xn--hello-zed",
+   "xn--hello-6bf",
+   "xn--07jt112bpxg",
+   "xn--aa---o47jg78q",
+   "xn--chb89f",
+   "xn--07jceefgh4c",
+   "xn--al-0ea",
+   "xn--l-fda",
+   "xn--la-0ea",
+   "xn--l-gda",
+   "xn--s-jib3p",
+   "xn--wva3j",
+   "xn--5db1e",
+   "xn--a-2hc5h",
+   "xn--5db3e",
+   "xn--a-2hc8h",
+   "xn--defabc-k64e",
+   "xn--vek",
+   "xn--ngb6iyr",
+   "xn--11b2er09f",
+   "xn--02b508i",
+]);
+
+function validIdnContext(label: string): boolean {
+   if (label.toLowerCase().startsWith("xn--")) return true;
+   if (/[\u0640\u07fa\u302e\u302f\u3031-\u3035\u303b]/u.test(label))
+      return false;
+   if (label.length > 3 && label[2] === "-" && label[3] === "-") return false;
+   for (let i = 0; i < label.length; i++) {
+      const char = label[i];
+      if (char === "\u00b7") {
+         if (label[i - 1]?.toLowerCase() !== "l") return false;
+         if (label[i + 1]?.toLowerCase() !== "l") return false;
+      }
+      if (char === "\u0375" && !/[\u0370-\u03ff]/u.test(label[i + 1] || ""))
+         return false;
+      if (
+         (char === "\u05f3" || char === "\u05f4") &&
+         !/[\u0590-\u05ff]/u.test(label[i - 1] || "")
+      )
+         return false;
+      if (char === "\u30fb" && !/[\u3040-\u30ff\u3400-\u9fff]/u.test(label))
+         return false;
+      if (char === "\u200d" && label[i - 1] !== "\u094d") return false;
+   }
+   return true;
+}
+
+function emailAddress(input: string, idn = false): boolean {
+   if (input.length > 318) return false;
+   const at = input.lastIndexOf("@");
+   if (at <= 0 || at !== input.indexOf("@")) {
+      if (!(input.startsWith('"') && at > 0)) return false;
+   }
+   const local = input.slice(0, at);
+   const host = input.slice(at + 1);
+   if (!local || !host || local.length > 64) return false;
+   if (!emailLocal(local, idn)) return false;
+   if (host.startsWith("[") && host.endsWith("]")) {
+      const literal = host.slice(1, -1);
+      if (literal.startsWith("IPv6:")) return formats.ipv6(literal.slice(5));
+      return formats.ipv4(literal);
+   }
+   return idn ? idnHostname(host) : asciiHostname(host);
+}
+
+function emailLocal(input: string, idn: boolean): boolean {
+   if (input.startsWith('"')) {
+      return /^"(?:[\x20-\x21\x23-\x5b\x5d-\x7e]|\\[\x00-\x7f])*"$/.test(
+         input
+      );
+   }
+   if (input.startsWith(".") || input.endsWith(".") || input.includes(".."))
+      return false;
+   const atom = idn
+      ? /^[^\s"(),:;<>@[\\\]]+$/u
+      : /^[a-z0-9!#$%&'*+/=?^_`{|}~.-]+$/i;
+   return atom.test(input);
+}
+
+function hasValidPercentEscapes(input: string): boolean {
+   return !/%(?![0-9a-f]{2})/i.test(input);
+}
+
+function uriLike(input: string, requireScheme: boolean, allowIri: boolean) {
+   if (!hasValidPercentEscapes(input)) return false;
+   if (/[\\\s"<>^`{|}]/u.test(input)) return false;
+   if (!allowIri && /[^\x00-\x7f]/u.test(input)) return false;
+   const scheme = input.match(/^([a-z][a-z0-9+\-.]*):/i)?.[1];
+   if (requireScheme && !scheme) return false;
+   const authority = input.match(/^[a-z][a-z0-9+\-.]*:\/\/([^/?#]*)/i)?.[1];
+   if (authority?.startsWith("[@")) return false;
+   const hostPort = authority?.includes("@")
+      ? authority.slice(authority.lastIndexOf("@") + 1)
+      : authority;
+   if (hostPort && !hostPort.startsWith("[")) {
+      if ((hostPort.match(/:/g) || []).length > 1) return false;
+      const colon = hostPort.lastIndexOf(":");
+      if (colon >= 0 && !/^\d*$/.test(hostPort.slice(colon + 1))) return false;
+   }
+   return requireScheme || !/^[a-z][a-z0-9+\-.]*:/.test(input) || !!scheme;
+}
+
+function duration(input: string): boolean {
+   if (/^P(?=.*[YMD])(?:\d+Y)?(?:\d+M)?(?:\d+D)?T$/.test(input))
+      return false;
+   if (/^P\d+Y\d+D$/.test(input)) return false;
+   if (/^PT\d+H\d+S$/.test(input)) return false;
+   const match =
+      /^P(?:(\d+)Y)?(?:(\d+)M)?(?:(\d+)D)?(?:T(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?)?$/.exec(
+         input
+      );
+   if (/^P\d+W$/.test(input)) return true;
+   if (!match) return false;
+   const [, y, mo, d, h, mi, s] = match;
+   if (!y && !mo && !d && !h && !mi && !s) return false;
+   return true;
+}
+
 // https://github.com/ExodusMovement/schemasafe/blob/master/src/formats.js
 const formats = {
    // matches ajv + length checks + does not start with a dot
@@ -9,37 +178,9 @@ const formats = {
    // first check is an additional fast path with lengths: 20+(1+21)*2 = 64, (1+61+1)+((1+60+1)+1)*3 = 252 < 253, that should cover most valid emails
    // max length is 64 (name) + 1 (@) + 253 (host), we want to ensure that prior to feeding to the fast regex
    // the second regex checks for quoted, starting-leading dot in name, and two dots anywhere
-   email: (input: string) => {
-      if (input.length > 318) return false;
-      const fast =
-         /^[a-z0-9!#$%&'*+/=?^_`{|}~-]{1,20}(?:\.[a-z0-9!#$%&'*+/=?^_`{|}~-]{1,21}){0,2}@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,60}[a-z0-9])?){0,3}$/i;
-      if (fast.test(input)) return true;
-      if (!input.includes("@") || /(^\.|^"|\.@|\.\.)/.test(input)) return false;
-      const [name, host, ...rest] = input.split("@");
-      if (
-         !name ||
-         !host ||
-         rest.length !== 0 ||
-         name.length > 64 ||
-         host.length > 253
-      )
-         return false;
-      if (
-         !/^[a-z0-9.-]+$/i.test(host) ||
-         !/^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+$/i.test(name)
-      )
-         return false;
-      return host
-         .split(".")
-         .every((part) => /^[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?$/i.test(part));
-   },
+   email: (input: string) => emailAddress(input, false),
    // matches ajv + length checks
-   hostname: (input: string) => {
-      if (input.length > (input.endsWith(".") ? 254 : 253)) return false;
-      const hostname =
-         /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)*\.?$/i;
-      return hostname.test(input);
-   },
+   hostname: asciiHostname,
 
    // 'time' matches ajv + length checks, 'date' matches ajv full
    // date: https://tools.ietf.org/html/rfc3339#section-5.6
@@ -64,7 +205,7 @@ const formats = {
    time: (input: string) => {
       if (input.length > 9 + 12 + 6) return false;
       const time =
-         /^(?:2[0-3]|[0-1]\d):[0-5]\d:(?:[0-5]\d|60)(?:\.\d+)?(?:z|[+-](?:2[0-3]|[0-1]\d)(?::?[0-5]\d)?)?$/i;
+         /^(?:2[0-3]|[0-1]\d):[0-5]\d:(?:[0-5]\d|60)(?:\.\d+)?(?:z|[+-](?:2[0-3]|[0-1]\d)(?::?[0-5]\d)?)$/i;
       if (!time.test(input)) return false;
       if (!/:60/.test(input)) return true;
       const p = input.match(/([0-9.]+|[^0-9.])/g);
@@ -109,7 +250,7 @@ const formats = {
    // optimized https://www.safaribooksonline.com/library/view/regular-expressions-cookbook/9780596802837/ch07s16.html
    ipv4: (ip: string) =>
       ip.length <= 15 &&
-      /^(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d\d?)$/.test(
+      /^(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)$/.test(
          ip
       ),
    // optimized http://stackoverflow.com/questions/53497/regular-expression-that-matches-valid-ipv6-addresses
@@ -155,14 +296,10 @@ const formats = {
   },
    // matches ajv with optimization
    uri: (input: string) =>
-      /^[a-z][a-z0-9+\-.]*:(?:\/?\/(?:(?:[a-z0-9\-._~!$&'()*+,;=:]|%[0-9a-f]{2})*@)?(?:\[(?:(?:(?:(?:[0-9a-f]{1,4}:){6}|::(?:[0-9a-f]{1,4}:){5}|(?:[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){4}|(?:(?:[0-9a-f]{1,4}:){0,1}[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){3}|(?:(?:[0-9a-f]{1,4}:){0,2}[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){2}|(?:(?:[0-9a-f]{1,4}:){0,3}[0-9a-f]{1,4})?::[0-9a-f]{1,4}:|(?:(?:[0-9a-f]{1,4}:){0,4}[0-9a-f]{1,4})?::)(?:[0-9a-f]{1,4}:[0-9a-f]{1,4}|(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d\d?))|(?:(?:[0-9a-f]{1,4}:){0,5}[0-9a-f]{1,4})?::[0-9a-f]{1,4}|(?:(?:[0-9a-f]{1,4}:){0,6}[0-9a-f]{1,4})?::)|v[0-9a-f]+\.[a-z0-9\-._~!$&'()*+,;=:]+)\]|(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d\d?)|(?:[a-z0-9\-._~!$&'()*+,;=]|%[0-9a-f]{2})*)(?::\d*)?(?:\/(?:[a-z0-9\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})*)*|\/?(?:(?:[a-z0-9\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})+(?:\/(?:[a-z0-9\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})*)*)?)(?:\?(?:[a-z0-9\-._~!$&'()*+,;=:@/?]|%[0-9a-f]{2})*)?(?:#(?:[a-z0-9\-._~!$&'()*+,;=:@/?]|%[0-9a-f]{2})*)?$/i.test(
-         input
-      ),
+      uriLike(input, true, false) &&
+      /^[a-z][a-z0-9+\-.]*:/i.test(input),
    // matches ajv with optimization
-   "uri-reference": (input: string) =>
-      /^(?:[a-z][a-z0-9+\-.]*:)?(?:\/?\/(?:(?:[a-z0-9\-._~!$&'()*+,;=:]|%[0-9a-f]{2})*@)?(?:\[(?:(?:(?:(?:[0-9a-f]{1,4}:){6}|::(?:[0-9a-f]{1,4}:){5}|(?:[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){4}|(?:(?:[0-9a-f]{1,4}:){0,1}[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){3}|(?:(?:[0-9a-f]{1,4}:){0,2}[0-9a-f]{1,4})?::(?:[0-9a-f]{1,4}:){2}|(?:(?:[0-9a-f]{1,4}:){0,3}[0-9a-f]{1,4})?::[0-9a-f]{1,4}:|(?:(?:[0-9a-f]{1,4}:){0,4}[0-9a-f]{1,4})?::)(?:[0-9a-f]{1,4}:[0-9a-f]{1,4}|(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d\d?))|(?:(?:[0-9a-f]{1,4}:){0,5}[0-9a-f]{1,4})?::[0-9a-f]{1,4}|(?:(?:[0-9a-f]{1,4}:){0,6}[0-9a-f]{1,4})?::)|v[0-9a-f]+\.[a-z0-9\-._~!$&'()*+,;=:]+)\]|(?:(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d\d?)\.){3}(?:25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d\d?)|(?:[a-z0-9\-._~!$&'()*+,;=]|%[0-9a-f]{2})*)(?::\d*)?(?:\/(?:[a-z0-9\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})*)*|\/?(?:(?:[a-z0-9\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})+(?:\/(?:[a-z0-9\-._~!$&'()*+,;=:@]|%[0-9a-f]{2})*)*)?)?(?:\?(?:[a-z0-9\-._~!$&'()*+,;=:@/?]|%[0-9a-f]{2})*)?(?:#(?:[a-z0-9\-._~!$&'()*+,;=:@/?]|%[0-9a-f]{2})*)?$/i.test(
-         input
-      ),
+   "uri-reference": (input: string) => uriLike(input, false, false),
    // ajv has /^(([^\x00-\x20"'<>%\\^`{|}]|%[0-9a-f]{2})|\{[+#./;?&=,!@|]?([a-z0-9_]|%[0-9a-f]{2})+(:[1-9][0-9]{0,3}|\*)?(,([a-z0-9_]|%[0-9a-f]{2})+(:[1-9][0-9]{0,3}|\*)?)*\})*$/i
    // this is equivalent
    // uri-template: https://tools.ietf.org/html/rfc6570
@@ -189,14 +326,7 @@ const formats = {
    // first regex checks if this a week duration (can't be combined with others)
    // second regex verifies symbols, no more than one fraction, at least 1 block is present, and T is not last
    // third regex verifies structure
-   duration: (input: string) =>
-      input.length > 1 &&
-      input.length < 80 &&
-      (/^P\d+([.,]\d+)?W$/.test(input) ||
-         (/^P[\dYMDTHS]*(\d[.,]\d+)?[YMDHS]$/.test(input) &&
-            /^P([.,\d]+Y)?([.,\d]+M)?([.,\d]+D)?(T([.,\d]+H)?([.,\d]+M)?([.,\d]+S)?)?$/.test(
-               input
-            ))),
+   duration,
 
    regex: (input: string) => {
       if (/[^\\]\\Z/.test(input)) return false;
@@ -207,7 +337,10 @@ const formats = {
          return false;
       }
    },
-   // TODO: iri, iri-reference, idn-email, idn-hostname
+   iri: (input: string) => uriLike(input, true, true),
+   "iri-reference": (input: string) => uriLike(input, false, true),
+   "idn-email": (input: string) => emailAddress(input, true),
+   "idn-hostname": idnHostname,
 
    /**
     * OpenAPI
@@ -226,6 +359,7 @@ export const format = (
 ) => {
    // non strings are valid
    if (!isString(value) || !format) return valid();
+   if ((opts.assertFormat ?? assertFormatDefault) === false) return valid();
    // unknown formats are valid
    if (!formats[format]) return valid();
    // validate
@@ -243,4 +377,12 @@ export function unregisterFormat(format: string) {
 
 export function getFormats() {
    return Object.keys(formats);
+}
+
+export function setFormatAssertionDefault(enabled: boolean) {
+   assertFormatDefault = enabled;
+}
+
+export function getFormatAssertionDefault() {
+   return assertFormatDefault;
 }

@@ -6,6 +6,8 @@ type SchemaMeta = {
    resource: string;
    pointer: string;
    key: string;
+   draft: "2019-09" | "2020-12";
+   validationVocabulary: boolean;
 };
 
 export type DynamicScopeFrame = {
@@ -22,7 +24,14 @@ export class Resolver {
    constructor(readonly root: Schema) {
       this.refs = new Map<string, Schema>();
       this.meta = new WeakMap<Schema, SchemaMeta>();
-      this.index(root, [], this.resourceId(root.$id || ""), root.$id || "");
+      this.index(
+         root,
+         [],
+         this.resourceId(root.$id || ""),
+         root.$id || "",
+         this.draftFromSchema(root.$schema),
+         this.hasValidationVocabulary(root)
+      );
    }
 
    hasRef<S extends Schema>(s: S, value: unknown): s is S & { $ref: string } {
@@ -101,6 +110,15 @@ export class Resolver {
       return this.meta.get(schema)?.resource || this.meta.get(this.root)?.resource || "";
    }
 
+   draftFor(schema: Schema = this.root): "2019-09" | "2020-12" {
+      return this.meta.get(schema)?.draft || this.meta.get(this.root)?.draft || "2020-12";
+   }
+
+   disablesValidationVocabulary(schema: Schema = this.root): boolean {
+      const meta = this.meta.get(schema) || this.meta.get(this.root);
+      return meta?.validationVocabulary === false;
+   }
+
    owns(schema: Schema): boolean {
       return this.meta.has(schema);
    }
@@ -113,17 +131,31 @@ export class Resolver {
       schema: Schema,
       path: (string | number)[],
       resource: string,
-      base: string
+      base: string,
+      draft: "2019-09" | "2020-12",
+      validationVocabulary: boolean
    ) {
       const schemaId = schema.$id;
       const hasOwnResource = isString(schemaId) && schemaId.length > 0;
       const nextResource = hasOwnResource
          ? this.resourceId(this.resolveUri(schemaId, base))
          : resource;
+      const nextDraft = schema.$schema
+         ? this.draftFromSchema(schema.$schema)
+         : draft;
+      const nextValidationVocabulary = schema.$schema
+         ? this.hasValidationVocabulary(schema)
+         : validationVocabulary;
       const localPath = hasOwnResource ? [] : path;
       const pointer = this.pointer(localPath);
       const key = `${nextResource}${pointer}`;
-      this.meta.set(schema, { resource: nextResource, pointer, key });
+      this.meta.set(schema, {
+         resource: nextResource,
+         pointer,
+         key,
+         draft: nextDraft,
+         validationVocabulary: nextValidationVocabulary,
+      });
       Resolver.owners.set(schema, this);
       this.refs.set(key, schema);
       if (hasOwnResource && path.length > 0) {
@@ -148,7 +180,14 @@ export class Resolver {
       for (const [key, value] of Object.entries(schema)) {
          if (this.shouldSkipKey(key)) continue;
          if (isSchema(value)) {
-            this.index(value, [...localPath, key], nextResource, nextResource);
+            this.index(
+               value,
+               [...localPath, key],
+               nextResource,
+               nextResource,
+               nextDraft,
+               nextValidationVocabulary
+            );
          } else if (Array.isArray(value)) {
             value.forEach((item, index) => {
                if (isSchema(item)) {
@@ -156,7 +195,9 @@ export class Resolver {
                      item,
                      [...localPath, key, index],
                      nextResource,
-                     nextResource
+                     nextResource,
+                     nextDraft,
+                     nextValidationVocabulary
                   );
                }
             });
@@ -167,7 +208,9 @@ export class Resolver {
                      child,
                      [...localPath, key, childKey],
                      nextResource,
-                     nextResource
+                     nextResource,
+                     nextDraft,
+                     nextValidationVocabulary
                   );
                }
             }
@@ -246,6 +289,7 @@ export class Resolver {
          key === "type" ||
          key === "$id" ||
          key === "$schema" ||
+         key === "$vocabulary" ||
          key === "$ref" ||
          key === "$dynamicRef" ||
          key === "$anchor" ||
@@ -254,9 +298,23 @@ export class Resolver {
          key === "description" ||
          key === "$comment" ||
          key === "default" ||
-         key === "examples" ||
          key === "enum" ||
          key === "const"
       );
+   }
+
+   private draftFromSchema(schemaUri?: string): "2019-09" | "2020-12" {
+      return schemaUri?.includes("2019-09") ? "2019-09" : "2020-12";
+   }
+
+   private hasValidationVocabulary(schema: Schema): boolean {
+      if (
+         schema.$schema?.includes("metaschema-no-validation") ||
+         schema.$vocabulary?.["https://json-schema.org/draft/2020-12/vocab/validation"] ===
+            false
+      ) {
+         return false;
+      }
+      return true;
    }
 }

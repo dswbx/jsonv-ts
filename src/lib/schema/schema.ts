@@ -8,6 +8,7 @@ import { Resolver } from "../validation/resolver";
 import {
    validate,
    withDynamicScope,
+   createEvaluatedLocations,
    type ValidationOptions,
    type ValidationResult,
 } from "../validation/validate";
@@ -28,6 +29,7 @@ export interface IBaseSchemaOptions {
    $anchor?: string;
    $dynamicAnchor?: string;
    $dynamicRef?: string;
+   $vocabulary?: Record<string, boolean>;
    title?: string;
    description?: string;
    default?: any;
@@ -86,6 +88,7 @@ export class Schema<
    $anchor?: string;
    $dynamicAnchor?: string;
    $dynamicRef?: string;
+   $vocabulary?: Record<string, boolean>;
    title?: string;
    description?: string;
    readOnly?: boolean;
@@ -181,6 +184,14 @@ export class Schema<
             opts?.resolver || this.getResolver(),
             opts?.dynamicScopes
          ),
+         evaluated: opts?.evaluated || createEvaluatedLocations(),
+         localEvaluatedBase: opts?.localEvaluatedBase || createEvaluatedLocations(),
+         assertFormat: opts?.assertFormat ?? true,
+         disableValidationVocab:
+            opts?.disableValidationVocab ??
+            (opts?.resolver || this.getResolver()).disablesValidationVocabulary(
+               this
+            ),
       };
 
       const customValidate = this[schemaSymbol].raw?.validate;

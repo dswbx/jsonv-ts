@@ -17,6 +17,7 @@ export interface IArrayOptions extends ISchemaOptions {
    minContains?: number;
    maxContains?: number;
    prefixItems?: Schema[];
+   unevaluatedItems?: Schema | false;
    uniqueItems?: boolean;
    maxItems?: number;
    minItems?: number;

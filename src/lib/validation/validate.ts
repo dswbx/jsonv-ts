@@ -31,10 +31,14 @@ import {
    not,
    dependentRequired,
    dependentSchemas,
+   dependencies,
+   unevaluatedItems,
+   unevaluatedProperties,
    ifThenElse,
 } from "./keywords";
 import { format } from "./format";
 import { Resolver, type DynamicScopeFrame } from "./resolver";
+import { toJsonPointer } from "../utils/path";
 
 type TKeywordFn = (
    schema: object,
@@ -62,19 +66,27 @@ export const keywords: Record<string, TKeywordFn> = {
    required,
    dependentRequired,
    dependentSchemas,
+   dependencies,
    minProperties,
    maxProperties,
    propertyNames,
    properties,
    patternProperties,
    additionalProperties,
+   unevaluatedProperties,
    minItems,
    maxItems,
    uniqueItems,
    contains,
    prefixItems,
    items,
+   unevaluatedItems,
    if: ifThenElse,
+};
+
+export type EvaluatedLocations = {
+   properties: Map<string, Set<string>>;
+   items: Map<string, Set<number>>;
 };
 
 export type ValidationOptions = {
@@ -89,6 +101,10 @@ export type ValidationOptions = {
    skipClone?: boolean;
    evaluatingRefs?: Set<string>;
    dynamicScopes?: DynamicScopeFrame[];
+   evaluated?: EvaluatedLocations;
+   localEvaluatedBase?: EvaluatedLocations;
+   assertFormat?: boolean;
+   disableValidationVocab?: boolean;
 };
 type CtxValidationOptions = Required<ValidationOptions>;
 
@@ -115,7 +131,14 @@ export function validate(
       skipClone: opts.skipClone || false,
       evaluatingRefs: opts.evaluatingRefs || new Set<string>(),
       dynamicScopes: withDynamicScope(s, resolver, opts.dynamicScopes),
+      evaluated: opts.evaluated || createEvaluatedLocations(),
+      localEvaluatedBase: opts.localEvaluatedBase || createEvaluatedLocations(),
+      assertFormat: opts.assertFormat ?? true,
+      disableValidationVocab:
+         opts.disableValidationVocab ??
+         resolver.disablesValidationVocabulary(s),
    };
+   const localEvaluatedBase = cloneEvaluated(ctx.evaluated);
 
    let value: unknown;
    if (opts?.coerce && s.coerce) {
@@ -173,10 +196,17 @@ export function validate(
       depth: ctx.depth,
       evaluatingRefs: ctx.evaluatingRefs,
       dynamicScopes: ctx.dynamicScopes,
+      evaluated: ctx.evaluated,
+      localEvaluatedBase,
+      assertFormat: ctx.assertFormat,
+      disableValidationVocab: ctx.disableValidationVocab,
    };
 
    // only check keywords that exist on the schema for better performance
    for (const keyword in s) {
+      if (keyword === "unevaluatedItems" || keyword === "unevaluatedProperties")
+         continue;
+      if (shouldSkipKeyword(keyword, s, ctx)) continue;
       if (keyword === "type" && s.type !== undefined) {
          // skip type checking if value is undefined for certain cases
          if (value !== undefined) {
@@ -206,6 +236,21 @@ export function validate(
                ctx.errors.push(...result.errors);
             }
          }
+      }
+   }
+
+   for (const keyword of ["unevaluatedItems", "unevaluatedProperties"]) {
+      if (!(keyword in s) || s[keyword] === undefined) continue;
+      if (shouldSkipKeyword(keyword, s, ctx)) continue;
+      const validator = keywords[keyword];
+      if (!validator || value === undefined) continue;
+      keywordCtx.errors = [];
+      const result = validator(s, value, keywordCtx);
+      if (!result.valid) {
+         if (opts.shortCircuit) {
+            return result;
+         }
+         ctx.errors.push(...result.errors);
       }
    }
 
@@ -246,4 +291,110 @@ export function withDynamicScope(
       return dynamicScopes;
    }
    return [...dynamicScopes, { resolver, resource }];
+}
+
+function shouldSkipKeyword(
+   keyword: string,
+   schema: Schema,
+   opts: CtxValidationOptions
+) {
+   if (keyword === "prefixItems" && opts.resolver.draftFor(schema) === "2019-09")
+      return true;
+   return opts.disableValidationVocab && validationVocabularyKeywords.has(keyword);
+}
+
+const validationVocabularyKeywords = new Set([
+   "type",
+   "const",
+   "enum",
+   "multipleOf",
+   "maximum",
+   "exclusiveMaximum",
+   "minimum",
+   "exclusiveMinimum",
+   "maxLength",
+   "minLength",
+   "pattern",
+   "format",
+   "maxItems",
+   "minItems",
+   "uniqueItems",
+   "maxContains",
+   "minContains",
+   "maxProperties",
+   "minProperties",
+   "required",
+   "dependentRequired",
+]);
+
+export function createEvaluatedLocations(): EvaluatedLocations {
+   return {
+      properties: new Map(),
+      items: new Map(),
+   };
+}
+
+export function cloneEvaluated(
+   evaluated: EvaluatedLocations = createEvaluatedLocations()
+): EvaluatedLocations {
+   return {
+      properties: new Map(
+         [...evaluated.properties.entries()].map(([path, props]) => [
+            path,
+            new Set(props),
+         ])
+      ),
+      items: new Map(
+         [...evaluated.items.entries()].map(([path, items]) => [
+            path,
+            new Set(items),
+         ])
+      ),
+   };
+}
+
+export function mergeEvaluated(
+   target: EvaluatedLocations,
+   source: EvaluatedLocations
+) {
+   for (const [path, props] of source.properties.entries()) {
+      const targetProps = target.properties.get(path) || new Set<string>();
+      for (const prop of props) targetProps.add(prop);
+      target.properties.set(path, targetProps);
+   }
+   for (const [path, items] of source.items.entries()) {
+      const targetItems = target.items.get(path) || new Set<number>();
+      for (const item of items) targetItems.add(item);
+      target.items.set(path, targetItems);
+   }
+}
+
+export function markEvaluatedProperty(opts: ValidationOptions, property: string) {
+   const evaluated = opts.evaluated || createEvaluatedLocations();
+   opts.evaluated = evaluated;
+   const path = instanceKey(opts);
+   const props = evaluated.properties.get(path) || new Set<string>();
+   props.add(property);
+   evaluated.properties.set(path, props);
+}
+
+export function markEvaluatedItem(opts: ValidationOptions, index: number) {
+   const evaluated = opts.evaluated || createEvaluatedLocations();
+   opts.evaluated = evaluated;
+   const path = instanceKey(opts);
+   const items = evaluated.items.get(path) || new Set<number>();
+   items.add(index);
+   evaluated.items.set(path, items);
+}
+
+export function evaluatedProperties(opts: ValidationOptions): Set<string> {
+   return opts.evaluated?.properties.get(instanceKey(opts)) || new Set();
+}
+
+export function evaluatedItems(opts: ValidationOptions): Set<number> {
+   return opts.evaluated?.items.get(instanceKey(opts)) || new Set();
+}
+
+export function instanceKey(opts: ValidationOptions) {
+   return toJsonPointer(opts.instancePath || []);
 }

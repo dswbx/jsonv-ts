@@ -60,6 +60,7 @@ export type ArraySchema<
    minContains?: number;
    maxContains?: number;
    prefixItems?: Contains[];
+   unevaluatedItems?: Items | boolean;
 };
 
 export type ObjectSchema<
@@ -79,6 +80,13 @@ export type ObjectSchema<
       [key in PropertyName]: P | PropertyName[];
    };
    propertyNames?: PN | boolean;
+   dependentRequired?: {
+      [key in PropertyName]: PropertyName[];
+   };
+   dependentSchemas?: {
+      [key in PropertyName]: P | boolean;
+   };
+   unevaluatedProperties?: AP | boolean;
 };
 
 export interface JSONSchema<S = BaseJSONSchema>
