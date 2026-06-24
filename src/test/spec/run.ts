@@ -3,8 +3,18 @@ import { fromSchema } from "../../lib/schema/from-schema";
 import path from "node:path";
 import c from "picocolors";
 import type { JSONSchema } from "../../lib/types";
+import { registerSpecRemotes } from "./remotes";
 
-const files = await getTestFiles("draft2020-12", { includeOptional: true });
+await registerSpecRemotes();
+
+const only = Bun.env.SPEC_ONLY
+   ? Bun.env.SPEC_ONLY.split(",").map((item) => new RegExp(item.trim()))
+   : undefined;
+
+const files = await getTestFiles("draft2020-12", {
+   includeOptional: true,
+   only,
+});
 
 const tests: (Awaited<ReturnType<typeof loadTest>> & { path: string })[] = [];
 for (const file of files) {
@@ -37,15 +47,15 @@ type SkipFn = (ctx: {
 const skips: SkipFn[] = [
    ({ schema, file }) =>
       [
-         // definitions
-         "$ref",
-         "$defs",
          // evaluation
          "dependencies",
          "unevaluatedItems",
          "unevaluatedProperties",
+         "dynamicRef",
+         "$dynamicRef",
          // meta
          "vocabulary",
+         "defs.json",
          // misc
          "float-overflow",
       ].some((k) => file.includes(k) || recurisvelyHasKeys(schema, [k])),
@@ -181,7 +191,7 @@ function printStats() {
 }
 
 const amount = 1414;
-const passed = stats.passed >= amount;
+const passed = only ? stats.failed === 0 : stats.passed >= amount;
 if (!passed) {
    process.exit(1);
 }

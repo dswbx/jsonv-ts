@@ -28,7 +28,7 @@ export function coerce(
    };
 
    if (ctx.resolver.hasRef(s, value)) {
-      return ctx.resolver.resolve(s.$ref).coerce(value, {
+      return ctx.resolver.resolve(s.$ref, s).coerce(value, {
          ...ctx,
          depth: ctx.depth + 1,
       });

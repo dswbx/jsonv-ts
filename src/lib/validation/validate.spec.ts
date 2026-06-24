@@ -2,6 +2,7 @@ import { describe, expect, test } from "bun:test";
 import * as s from "../";
 import { booleanSchema } from "../schema";
 import { fromSchema } from "../";
+import { Resolver } from "./resolver";
 
 describe("validate", () => {
    test("error count", () => {
@@ -54,7 +55,92 @@ describe("validate", () => {
       expect(multi.validate(true).errors[0]?.keywordLocation).toBe("/type");
    });
 
-   test.skip("ref", () => {
+   test("$defs is a schema container, not an assertion", () => {
+      const schema = fromSchema({
+         type: "number",
+         $defs: {
+            string: { type: "string" },
+         },
+      });
+
+      expect(schema.validate(1).valid).toBe(true);
+      expect(schema.validate("1").valid).toBe(false);
+   });
+
+   test("$ref validates alongside sibling keywords", () => {
+      const schema = fromSchema({
+         $ref: "#/$defs/stringArray",
+         maxItems: 2,
+         $defs: {
+            stringArray: {
+               type: "array",
+               items: { type: "string" },
+            },
+         },
+      });
+
+      expect(schema.validate(["a", "b"]).valid).toBe(true);
+      expect(schema.validate(["a", "b", "c"]).valid).toBe(false);
+      expect(schema.validate(["a", 1]).valid).toBe(false);
+   });
+
+   test("$id resolves refs against the nearest resource", () => {
+      const schema = fromSchema({
+         $id: "http://example.com/root.json",
+         $defs: {
+            parent: {
+               $id: "folder/parent.json",
+               $defs: {
+                  child: { type: "integer" },
+               },
+               properties: {
+                  value: { $ref: "parent.json#/$defs/child" },
+               },
+            },
+         },
+         $ref: "folder/parent.json",
+      });
+
+      expect(schema.validate({ value: 1 }).valid).toBe(true);
+      expect(schema.validate({ value: "1" }).valid).toBe(false);
+   });
+
+   test("$anchor resolves within the current base URI", () => {
+      const schema = fromSchema({
+         $id: "http://example.com/root.json",
+         $defs: {
+            int: {
+               $anchor: "target",
+               type: "integer",
+            },
+         },
+         $ref: "#target",
+      });
+
+      expect(schema.validate(1).valid).toBe(true);
+      expect(schema.validate("1").valid).toBe(false);
+   });
+
+   test("remote refs resolve from the registered resolver registry", () => {
+      Resolver.clearRemotes();
+      Resolver.registerRemote(
+         "http://localhost:1234/remote/integer.json",
+         fromSchema({
+            $id: "http://localhost:1234/remote/integer.json",
+            type: "integer",
+         })
+      );
+
+      const schema = fromSchema({
+         $ref: "http://localhost:1234/remote/integer.json",
+      });
+
+      expect(schema.validate(1).valid).toBe(true);
+      expect(schema.validate("1").valid).toBe(false);
+      Resolver.clearRemotes();
+   });
+
+   test("ref", () => {
       const schema = s.object({
          foo: s.refId("#").optional(),
       });

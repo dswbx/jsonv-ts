@@ -7,6 +7,7 @@ describe("path", () => {
    test("toJsonPointer", () => {
       expect(toJsonPointer(["a", "b", "c"])).toBe("/a/b/c");
       expect(toJsonPointer(["a", "b", "c"], "prefix")).toBe("/prefix/a/b/c");
+      expect(toJsonPointer(["a/b", "c~d"])).toBe("/a~1b/c~0d");
    });
 
    test("fromJsonPointer", () => {
@@ -19,6 +20,16 @@ describe("path", () => {
       ]);
       expect(fromJsonPointer("#/a/b/c/1")).toEqual(["a", "b", "c", "1"]);
       expect(fromJsonPointer("#")).toEqual([]);
+      expect(fromJsonPointer("#/a~1b/c~0d")).toEqual(["a/b", "c~d"]);
+      expect(fromJsonPointer("#/$defs/foo%22bar")).toEqual([
+         "$defs",
+         'foo"bar',
+      ]);
+      expect(fromJsonPointer("#/$defs//inner")).toEqual([
+         "$defs",
+         "",
+         "inner",
+      ]);
    });
 
    test("getPath", () => {
@@ -45,5 +56,6 @@ describe("path", () => {
       expect(getJsonPath({ a: { b: { c: 1 } } }, "/a/b/d")).toBe(undefined);
       expect(getJsonPath({ a: { b: { c: [1, 0] } } }, "/a/b/c/1")).toBe(0);
       expect(getJsonPath({ a: { b: 0 } }, "#")).toEqual({ a: { b: 0 } });
+      expect(getJsonPath({ "a/b": { "c~d": 1 } }, "#/a~1b/c~0d")).toBe(1);
    });
 });

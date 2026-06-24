@@ -65,6 +65,7 @@ export interface IObjectOptions extends ISchemaOptions {
    $defs?: Record<string, Schema>;
    patternProperties?: Record<string, Schema>;
    additionalProperties?: Schema | false;
+   required?: string[];
    minProperties?: number;
    maxProperties?: number;
    propertyNames?: Schema;
@@ -91,14 +92,16 @@ export class ObjectSchema<
    //additionalProperties: Schema | undefined;
 
    constructor(properties: P, o?: O) {
-      let required: string[] | undefined = [];
+      let required: string[] | undefined = Array.isArray(o?.required)
+         ? [...o.required]
+         : [];
       for (const [key, value] of Object.entries(properties || {})) {
          invariant(
             isSchema(value),
             "properties must be managed schemas",
             value
          );
-         if (!value[symbol].optional) {
+         if (!value[symbol].optional && !required.includes(key)) {
             required.push(key);
          }
       }

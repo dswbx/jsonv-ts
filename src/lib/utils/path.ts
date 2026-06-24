@@ -6,7 +6,7 @@ export const toJsonPointer = (path: (string | number)[] = [], prefix = "") => {
       [
          prefix,
          ...path.map((p) => {
-            return String(p).replace(/\./g, "/");
+            return String(p).replace(/~/g, "~0").replace(/\//g, "~1");
          }),
       ]
          .filter(Boolean)
@@ -15,7 +15,22 @@ export const toJsonPointer = (path: (string | number)[] = [], prefix = "") => {
 };
 
 export const fromJsonPointer = (pointer: string) => {
-   return pointer.split("/").slice(1);
+   let value = pointer;
+   if (value === "#") return [];
+   if (value.startsWith("#")) {
+      value = value.slice(1);
+      try {
+         value = decodeURIComponent(value);
+      } catch (e) {
+         // Keep the original fragment if it is not valid percent-encoding.
+      }
+   }
+   if (value === "") return [];
+   if (!value.startsWith("/")) return [value];
+   return value
+      .split("/")
+      .slice(1)
+      .map((part) => part.replace(/~1/g, "/").replace(/~0/g, "~"));
 };
 
 export function getJsonPath(
@@ -23,8 +38,7 @@ export function getJsonPath(
    _path: string | (string | number)[],
    defaultValue = undefined
 ): any {
-   const path =
-      typeof _path === "string" ? fromJsonPointer(_path) : toJsonPointer(_path);
+   const path = typeof _path === "string" ? fromJsonPointer(_path) : _path;
    return getPath(object, path, defaultValue);
 }
 

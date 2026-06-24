@@ -14,6 +14,9 @@ export type BaseJSONSchema = {
    $id?: string;
    $ref?: string;
    $schema?: string;
+   $anchor?: string;
+   $dynamicAnchor?: string;
+   $dynamicRef?: string;
    title?: string;
    description?: string;
    default?: any;

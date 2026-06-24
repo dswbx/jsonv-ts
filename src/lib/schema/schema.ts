@@ -24,6 +24,9 @@ export interface IBaseSchemaOptions {
    $id?: string;
    $ref?: string;
    $schema?: string;
+   $anchor?: string;
+   $dynamicAnchor?: string;
+   $dynamicRef?: string;
    title?: string;
    description?: string;
    default?: any;
@@ -79,6 +82,9 @@ export class Schema<
    $id?: string;
    $ref?: string;
    $schema?: string;
+   $anchor?: string;
+   $dynamicAnchor?: string;
+   $dynamicRef?: string;
    title?: string;
    description?: string;
    readOnly?: boolean;
@@ -168,6 +174,11 @@ export class Schema<
          resolver: opts?.resolver || this.getResolver(),
          depth: opts?.depth ? opts.depth + 1 : 0,
          skipClone: opts?.skipClone ?? true,
+         evaluatingRefs: opts?.evaluatingRefs || new Set<string>(),
+         dynamicScopes:
+            typeof this.$dynamicAnchor === "string"
+               ? [...(opts?.dynamicScopes || []), this]
+               : opts?.dynamicScopes || [],
       };
 
       const customValidate = this[schemaSymbol].raw?.validate;

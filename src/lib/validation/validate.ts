@@ -87,6 +87,8 @@ export type ValidationOptions = {
    resolver?: Resolver;
    depth?: number;
    skipClone?: boolean;
+   evaluatingRefs?: Set<string>;
+   dynamicScopes?: Schema[];
 };
 type CtxValidationOptions = Required<ValidationOptions>;
 
@@ -110,6 +112,11 @@ export function validate(
       resolver: opts.resolver || s.getResolver?.() || new Resolver(s),
       depth: opts.depth ? opts.depth + 1 : 0,
       skipClone: opts.skipClone || false,
+      evaluatingRefs: opts.evaluatingRefs || new Set<string>(),
+      dynamicScopes:
+         typeof s.$dynamicAnchor === "string"
+            ? [...(opts.dynamicScopes || []), s]
+            : opts.dynamicScopes || [],
    };
 
    let value: unknown;
@@ -127,8 +134,7 @@ export function validate(
 
    if (opts.ignoreUnsupported !== true) {
       // @todo: $ref
-      // @todo: $defs
-      const todo = ["$defs"];
+      const todo = [];
       for (const item of todo) {
          if (s[item]) {
             throw new Error(`${item} not implemented`);
@@ -138,46 +144,49 @@ export function validate(
 
    // check $ref
    if (ctx.resolver.hasRef(s, value)) {
-      const result = ctx.resolver.resolve(s.$ref!).validate(value, {
-         ...ctx,
-         errors: [],
-      });
-      if (!result.valid) {
+      const refSchema = ctx.resolver.resolve(s.$ref!, s);
+      const result = validateResolvedRef(refSchema, value, ctx);
+      if (result && !result.valid) {
          ctx.errors.push(...result.errors);
       }
-   } else {
-      // create a reusable context object to avoid spreading on every keyword
-      const keywordCtx = {
-         keywordPath: ctx.keywordPath,
-         instancePath: ctx.instancePath,
-         coerce: ctx.coerce,
-         errors: [] as any[],
-         shortCircuit: ctx.shortCircuit,
-         ignoreUnsupported: ctx.ignoreUnsupported,
-         resolver: ctx.resolver,
-         depth: ctx.depth,
-      };
+   }
 
-      // only check keywords that exist on the schema for better performance
-      for (const keyword in s) {
-         if (keyword === "type" && s.type !== undefined) {
-            // skip type checking if value is undefined for certain cases
-            if (value !== undefined) {
-               const validator = keywords[keyword];
-               if (validator) {
-                  keywordCtx.errors = []; // reset errors for this keyword
-                  const result = validator(s, value, keywordCtx);
-                  if (!result.valid) {
-                     if (opts.shortCircuit) {
-                        return result;
-                     }
-                     ctx.errors.push(...result.errors);
-                  }
-               }
-            }
-         } else if (keyword in keywords && s[keyword] !== undefined) {
-            // @todo: not entirely sure about this
-            if (value === undefined) continue;
+   if (ctx.resolver.hasDynamicRef(s, value)) {
+      let refSchema = ctx.resolver.resolve(s.$dynamicRef!, s);
+      const anchor = dynamicAnchorName(s.$dynamicRef!);
+      if (anchor && refSchema.$dynamicAnchor === anchor) {
+         const scoped = [...ctx.dynamicScopes]
+            .reverse()
+            .find((scope) => scope.$dynamicAnchor === anchor);
+         if (scoped) {
+            refSchema = scoped;
+         }
+      }
+      const result = validateResolvedRef(refSchema, value, ctx);
+      if (result && !result.valid) {
+         ctx.errors.push(...result.errors);
+      }
+   }
+
+   // create a reusable context object to avoid spreading on every keyword
+   const keywordCtx = {
+      keywordPath: ctx.keywordPath,
+      instancePath: ctx.instancePath,
+      coerce: ctx.coerce,
+      errors: [] as any[],
+      shortCircuit: ctx.shortCircuit,
+      ignoreUnsupported: ctx.ignoreUnsupported,
+      resolver: ctx.resolver,
+      depth: ctx.depth,
+      evaluatingRefs: ctx.evaluatingRefs,
+      dynamicScopes: ctx.dynamicScopes,
+   };
+
+   // only check keywords that exist on the schema for better performance
+   for (const keyword in s) {
+      if (keyword === "type" && s.type !== undefined) {
+         // skip type checking if value is undefined for certain cases
+         if (value !== undefined) {
             const validator = keywords[keyword];
             if (validator) {
                keywordCtx.errors = []; // reset errors for this keyword
@@ -190,6 +199,20 @@ export function validate(
                }
             }
          }
+      } else if (keyword in keywords && s[keyword] !== undefined) {
+         // @todo: not entirely sure about this
+         if (value === undefined) continue;
+         const validator = keywords[keyword];
+         if (validator) {
+            keywordCtx.errors = []; // reset errors for this keyword
+            const result = validator(s, value, keywordCtx);
+            if (!result.valid) {
+               if (opts.shortCircuit) {
+                  return result;
+               }
+               ctx.errors.push(...result.errors);
+            }
+         }
       }
    }
 
@@ -199,4 +222,30 @@ export function validate(
       // @ts-ignore
       //$refs: Object.fromEntries(ctx.cache.entries()),
    };
+}
+
+function validateResolvedRef(
+   refSchema: Schema,
+   value: unknown,
+   ctx: CtxValidationOptions
+): ValidationResult | undefined {
+   const resolver = Resolver.ownerOf(refSchema) || ctx.resolver;
+   const refKey = `${resolver.keyFor(refSchema)}@${ctx.instancePath.join("/")}`;
+   if (ctx.evaluatingRefs.has(refKey)) return undefined;
+   ctx.evaluatingRefs.add(refKey);
+   const result = refSchema.validate(value, {
+      ...ctx,
+      resolver,
+      errors: [],
+   });
+   ctx.evaluatingRefs.delete(refKey);
+   return result;
+}
+
+function dynamicAnchorName(ref: string): string | undefined {
+   const index = ref.indexOf("#");
+   if (index === -1) return undefined;
+   const fragment = ref.slice(index + 1);
+   if (!fragment || fragment.startsWith("/")) return undefined;
+   return fragment;
 }
