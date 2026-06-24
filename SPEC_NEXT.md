@@ -8,7 +8,7 @@ Reference-specific gaps were the priority. `ref.json`, `anchor.json`, `refRemote
 
 ## Progress Log
 
-### 2026-06-24 - `TBD feat: implement json schema dynamic refs`
+### 2026-06-24 - `df17b92 feat: implement json schema dynamic refs`
 
 Implemented the dedicated `$dynamicRef` milestone on branch `json-schema-spec`.
 
