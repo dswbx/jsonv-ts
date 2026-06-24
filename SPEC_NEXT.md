@@ -6,6 +6,56 @@ Current suite status from `bun run src/test/spec/run.ts`: 2,098 total, 1,549 pas
 
 Reference-specific gaps are the priority. With current skips bypassed, `ref.json` only passes 39/79 in relaxed mode; `anchor.json` passes 0/8; `dynamicRef.json` passes 5/44; `refRemote.json` passes 1/31. Most strict failures are caused by `$defs` being rejected before reference evaluation.
 
+## Progress Log
+
+### 2026-06-24 - `f74a6ef feat: improve json schema spec refs`
+
+Implemented and committed the first ref milestone on branch `json-schema-spec`.
+
+Current full-suite status:
+
+- `bun run types`: passed.
+- `bun test --bail`: passed, 264 pass, 2 skipped, 0 fail.
+- `bun run src/test/spec/run.ts`: passed, 2,098 total, 1,684 passed, 312 skipped, 0 required failures, 102 optional failures.
+
+Bucket status:
+
+| Bucket | Status | Notes |
+| --- | --- | --- |
+| Bucket 1: local `$ref` and `$defs` | Done for accepted suite scope | `$defs` no longer throws as unsupported; JSON Pointer decoding handles `#`, escaped tokens, percent fragments, and empty tokens; `$ref` validates alongside sibling keywords. `ref.json` is now 78/79 direct, with the remaining case skipped because it depends on annotation/unevaluated behavior. |
+| Bucket 2: URI, `$id`, `$anchor` resolver | Done for required anchor/ref cases | Resolver now indexes schemas by resource URI, JSON Pointer, `$id`, `$anchor`, and `$dynamicAnchor`; refs resolve relative to the referring schema. `anchor.json` passes 8/8. Infinite-loop detection passes 2/2. |
+| Bucket 3: remote refs | Done for required `refRemote.json` | Added ignored JSON Schema Test Suite `remotes` fixtures and `src/test/spec/remotes.ts` registry. `refRemote.json` passes 31/31. Remote fixtures are fetched by the existing `fetch:spec` script and ignored by git. |
+| Bucket 4: `$dynamicRef` | Not done | A minimal `$dynamicRef` path exists, but required `dynamicRef.json` is still intentionally skipped. Direct measurement during implementation was partial only, around 32/44. Needs a dedicated dynamic-scope implementation pass. |
+| Bucket 5: remaining skipped buckets | Not done | `unevaluatedItems`, `unevaluatedProperties`, `dependencies`, `vocabulary`, metaschema-only `defs.json`, and optional format precision remain future work. |
+
+Important implementation details:
+
+- `src/lib/validation/resolver.ts` is now the core resolver index. It owns schema metadata and has a static remote registry for test fixtures.
+- `src/test/spec/remotes.ts` is the only tracked remotes helper. The actual `src/test/spec/remotes/` JSON files are ignored like `src/test/spec/lib/`.
+- `package.json` `fetch:spec` now refreshes both ignored fixture directories: `src/test/spec/lib` and `src/test/spec/remotes`.
+- `src/test/spec/run.ts` supports `SPEC_ONLY`, for example:
+  - `SPEC_ONLY='ref\.json$|anchor\.json$|refRemote\.json$|dynamicRef\.json$|defs\.json$|infinite-loop-detection\.json$' bun run src/test/spec/run.ts`
+
+Obstacles and lessons:
+
+- Remote fixtures were initially created as untracked files under `src/test/spec/remotes/`. This was corrected by adding that directory to `.gitignore` and moving fixture population into the existing `fetch:spec` script.
+- Remote schemas without their own `$id` must use their retrieval URI as the base URI. The resolver registry now sets that when registering a remote schema.
+- Nested refs inside remote schemas must validate with the remote document's resolver, not the original caller's resolver. The resolver tracks schema ownership to preserve this.
+- The evaluation guard key must be computed from the owning resolver, or unrelated remote roots collapse to the same `#@instance` key and validation can be skipped incorrectly.
+- Enabling `$ref` unmasked a non-ref bug: raw-schema `required` arrays were being overwritten by `ObjectSchema`. `ObjectSchema` now preserves explicit `required`.
+- The remaining skipped `ref.json` case, "ref creates new scope when adjacent to keywords", is tied to annotation/unevaluated behavior and should be handled with Bucket 5 rather than by special-casing refs.
+
+## How To Record Future Updates
+
+When continuing this work, update this file before or with each commit:
+
+- Add a new dated entry under `Progress Log` with the commit hash and short commit subject.
+- Update the bucket table status (`Done`, `Partial`, `Blocked`, or `Not done`) and include exact suite counts for any bucket touched.
+- Record commands run and final pass/fail numbers, especially `bun run types`, `bun test --bail`, focused `SPEC_ONLY` runs, and the full spec runner.
+- Record obstacles in concrete terms: failing suite file/test description, root cause, and whether the fix was implemented or deferred.
+- If skip policy changes in `src/test/spec/run.ts`, note exactly which files/keywords were unskipped or newly skipped and why.
+- Keep generated suite fixtures out of git. If new fixtures are needed, add them to `fetch:spec` or another explicit script and update `.gitignore` if necessary.
+
 ## Key Changes
 
 - Bucket 1: local `$ref` and `$defs`
