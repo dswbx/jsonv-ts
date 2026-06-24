@@ -7,6 +7,7 @@ import { coerce, type CoercionOptions } from "../validation/coerce";
 import { Resolver } from "../validation/resolver";
 import {
    validate,
+   withDynamicScope,
    type ValidationOptions,
    type ValidationResult,
 } from "../validation/validate";
@@ -175,10 +176,11 @@ export class Schema<
          depth: opts?.depth ? opts.depth + 1 : 0,
          skipClone: opts?.skipClone ?? true,
          evaluatingRefs: opts?.evaluatingRefs || new Set<string>(),
-         dynamicScopes:
-            typeof this.$dynamicAnchor === "string"
-               ? [...(opts?.dynamicScopes || []), this]
-               : opts?.dynamicScopes || [],
+         dynamicScopes: withDynamicScope(
+            this,
+            opts?.resolver || this.getResolver(),
+            opts?.dynamicScopes
+         ),
       };
 
       const customValidate = this[schemaSymbol].raw?.validate;

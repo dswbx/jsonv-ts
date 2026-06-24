@@ -140,6 +140,198 @@ describe("validate", () => {
       Resolver.clearRemotes();
    });
 
+   test("$dynamicRef resolves to the active dynamic anchor through $ref", () => {
+      const schema = fromSchema({
+         $id: "https://test.json-schema.org/typical-dynamic-resolution/root",
+         $ref: "list",
+         $defs: {
+            foo: { $dynamicAnchor: "items", type: "string" },
+            list: {
+               $id: "list",
+               type: "array",
+               items: { $dynamicRef: "#items" },
+               $defs: {
+                  items: {
+                     $dynamicAnchor: "items",
+                  },
+               },
+            },
+         },
+      });
+
+      expect(schema.validate(["a", "b"]).valid).toBe(true);
+      expect(schema.validate(["a", 1]).valid).toBe(false);
+   });
+
+   test("$dynamicRef ignores intermediate scopes without matching anchors", () => {
+      const schema = fromSchema({
+         $id: "https://test.json-schema.org/dynamic-resolution-with-intermediate-scopes/root",
+         $ref: "intermediate-scope",
+         $defs: {
+            foo: { $dynamicAnchor: "items", type: "string" },
+            "intermediate-scope": {
+               $id: "intermediate-scope",
+               $ref: "list",
+            },
+            list: {
+               $id: "list",
+               type: "array",
+               items: { $dynamicRef: "#items" },
+               $defs: {
+                  items: {
+                     $dynamicAnchor: "items",
+                  },
+               },
+            },
+         },
+      });
+
+      expect(schema.validate(["a"]).valid).toBe(true);
+      expect(schema.validate([1]).valid).toBe(false);
+   });
+
+   test("$dynamicRef does not use plain $anchor for dynamic scope", () => {
+      const schema = fromSchema({
+         $id: "https://test.json-schema.org/dynamic-resolution-ignores-anchors/root",
+         $ref: "list",
+         $defs: {
+            foo: { $anchor: "items", type: "string" },
+            list: {
+               $id: "list",
+               type: "array",
+               items: { $dynamicRef: "#items" },
+               $defs: {
+                  items: {
+                     $dynamicAnchor: "items",
+                  },
+               },
+            },
+         },
+      });
+
+      expect(schema.validate(["a", 1, null]).valid).toBe(true);
+   });
+
+   test("$dynamicRef does not keep dynamic anchors from inactive branches", () => {
+      const schema = fromSchema({
+         $id: "https://test.json-schema.org/dynamic-ref-leaving-dynamic-scope/main",
+         if: {
+            $id: "first_scope",
+            $defs: {
+               thingy: {
+                  $dynamicAnchor: "thingy",
+                  type: "number",
+               },
+            },
+         },
+         then: {
+            $id: "second_scope",
+            $ref: "start",
+            $defs: {
+               thingy: {
+                  $dynamicAnchor: "thingy",
+                  type: "null",
+               },
+            },
+         },
+         $defs: {
+            start: {
+               $id: "start",
+               $dynamicRef: "inner_scope#thingy",
+            },
+            thingy: {
+               $id: "inner_scope",
+               $dynamicAnchor: "thingy",
+               type: "string",
+            },
+         },
+      });
+
+      expect(schema.validate("a string").valid).toBe(false);
+      expect(schema.validate(42).valid).toBe(false);
+      expect(schema.validate(null).valid).toBe(true);
+   });
+
+   test("$dynamicRef resolves through a remote schema using the caller dynamic anchor", () => {
+      Resolver.clearRemotes();
+      Resolver.registerRemote(
+         "http://localhost:1234/draft2020-12/extendible-dynamic-ref.json",
+         fromSchema({
+            $id: "http://localhost:1234/draft2020-12/extendible-dynamic-ref.json",
+            type: "object",
+            properties: {
+               elements: {
+                  type: "array",
+                  items: { $dynamicRef: "#elements" },
+               },
+            },
+            required: ["elements"],
+            additionalProperties: false,
+            $defs: {
+               elements: { $dynamicAnchor: "elements" },
+            },
+         })
+      );
+
+      const schema = fromSchema({
+         $id: "http://localhost:1234/draft2020-12/strict-extendible.json",
+         $ref: "extendible-dynamic-ref.json",
+         $defs: {
+            elements: {
+               $dynamicAnchor: "elements",
+               properties: { a: true },
+               required: ["a"],
+               additionalProperties: false,
+            },
+         },
+      });
+
+      expect(schema.validate({ elements: [{ a: 1 }] }).valid).toBe(true);
+      expect(schema.validate({ elements: [{ b: 1 }] }).valid).toBe(false);
+      Resolver.clearRemotes();
+   });
+
+   test("$ref resolves pointer fragments across embedded resource boundaries", () => {
+      const schema = fromSchema({
+         $id: "https://test.json-schema.org/dynamic-ref-skips-intermediate-resource/optional/main",
+         type: "object",
+         properties: {
+            "bar-item": { $ref: "bar#/$defs/item" },
+         },
+         $defs: {
+            bar: {
+               $id: "bar",
+               type: "array",
+               items: { $ref: "item" },
+               $defs: {
+                  item: {
+                     $id: "item",
+                     type: "object",
+                     properties: {
+                        content: { $dynamicRef: "#content" },
+                     },
+                     $defs: {
+                        defaultContent: {
+                           $dynamicAnchor: "content",
+                           type: "integer",
+                        },
+                     },
+                  },
+                  content: {
+                     $dynamicAnchor: "content",
+                     type: "string",
+                  },
+               },
+            },
+         },
+      });
+
+      expect(schema.validate({ "bar-item": { content: 1 } }).valid).toBe(true);
+      expect(schema.validate({ "bar-item": { content: "x" } }).valid).toBe(
+         false
+      );
+   });
+
    test("ref", () => {
       const schema = s.object({
          foo: s.refId("#").optional(),

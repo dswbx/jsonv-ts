@@ -51,8 +51,6 @@ const skips: SkipFn[] = [
          "dependencies",
          "unevaluatedItems",
          "unevaluatedProperties",
-         "dynamicRef",
-         "$dynamicRef",
          // meta
          "vocabulary",
          "defs.json",

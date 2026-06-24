@@ -8,6 +8,11 @@ type SchemaMeta = {
    key: string;
 };
 
+export type DynamicScopeFrame = {
+   resolver: Resolver;
+   resource: string;
+};
+
 export class Resolver {
    private static remotes = new Map<string, Schema>();
    private static owners = new WeakMap<Schema, Resolver>();
@@ -55,6 +60,27 @@ export class Resolver {
       throw new Error(`ref not found: ${ref}`);
    }
 
+   resolveDynamicRef(
+      ref: string,
+      from: Schema,
+      dynamicScopes: DynamicScopeFrame[] = []
+   ): Schema {
+      const refSchema = this.resolve(ref, from);
+      const anchor = this.dynamicAnchorName(ref);
+      if (!anchor || refSchema.$dynamicAnchor !== anchor) {
+         return refSchema;
+      }
+
+      for (const scope of dynamicScopes) {
+         const scoped = scope.resolver.dynamicAnchorInResource(
+            scope.resource,
+            anchor
+         );
+         if (scoped) return scoped;
+      }
+      return refSchema;
+   }
+
    static registerRemote(uri: string, schema: Schema) {
       const resource = uri.split("#")[0] || "";
       if (!schema.$id) {
@@ -69,6 +95,10 @@ export class Resolver {
 
    keyFor(schema: Schema): string {
       return this.meta.get(schema)?.key || "#";
+   }
+
+   resourceFor(schema: Schema = this.root): string {
+      return this.meta.get(schema)?.resource || this.meta.get(this.root)?.resource || "";
    }
 
    owns(schema: Schema): boolean {
@@ -96,6 +126,9 @@ export class Resolver {
       this.meta.set(schema, { resource: nextResource, pointer, key });
       Resolver.owners.set(schema, this);
       this.refs.set(key, schema);
+      if (hasOwnResource && path.length > 0) {
+         this.refs.set(`${resource}${this.pointer(path)}`, schema);
+      }
 
       if (pointer === "#") {
          this.refs.set(nextResource, schema);
@@ -183,6 +216,22 @@ export class Resolver {
       const index = uri.indexOf("#");
       if (index === -1) return [uri];
       return [uri.slice(0, index), uri.slice(index + 1)];
+   }
+
+   private dynamicAnchorInResource(
+      resource: string,
+      anchor: string
+   ): Schema | undefined {
+      const schema = this.refs.get(`${resource}#${anchor}`);
+      return schema?.$dynamicAnchor === anchor ? schema : undefined;
+   }
+
+   private dynamicAnchorName(ref: string): string | undefined {
+      const index = ref.indexOf("#");
+      if (index === -1) return undefined;
+      const fragment = ref.slice(index + 1);
+      if (!fragment || fragment.startsWith("/")) return undefined;
+      return fragment;
    }
 
    private pointer(path: (string | number)[]) {

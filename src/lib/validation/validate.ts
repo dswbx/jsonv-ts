@@ -34,7 +34,7 @@ import {
    ifThenElse,
 } from "./keywords";
 import { format } from "./format";
-import { Resolver } from "./resolver";
+import { Resolver, type DynamicScopeFrame } from "./resolver";
 
 type TKeywordFn = (
    schema: object,
@@ -88,7 +88,7 @@ export type ValidationOptions = {
    depth?: number;
    skipClone?: boolean;
    evaluatingRefs?: Set<string>;
-   dynamicScopes?: Schema[];
+   dynamicScopes?: DynamicScopeFrame[];
 };
 type CtxValidationOptions = Required<ValidationOptions>;
 
@@ -102,6 +102,7 @@ export function validate(
    _value: unknown,
    opts: ValidationOptions = {}
 ): ValidationResult {
+   const resolver = opts.resolver || s.getResolver?.() || new Resolver(s);
    const ctx: CtxValidationOptions = {
       keywordPath: opts.keywordPath || [],
       instancePath: opts.instancePath || [],
@@ -109,14 +110,11 @@ export function validate(
       errors: opts.errors || [],
       shortCircuit: opts.shortCircuit || false,
       ignoreUnsupported: opts.ignoreUnsupported || false,
-      resolver: opts.resolver || s.getResolver?.() || new Resolver(s),
+      resolver,
       depth: opts.depth ? opts.depth + 1 : 0,
       skipClone: opts.skipClone || false,
       evaluatingRefs: opts.evaluatingRefs || new Set<string>(),
-      dynamicScopes:
-         typeof s.$dynamicAnchor === "string"
-            ? [...(opts.dynamicScopes || []), s]
-            : opts.dynamicScopes || [],
+      dynamicScopes: withDynamicScope(s, resolver, opts.dynamicScopes),
    };
 
    let value: unknown;
@@ -152,16 +150,11 @@ export function validate(
    }
 
    if (ctx.resolver.hasDynamicRef(s, value)) {
-      let refSchema = ctx.resolver.resolve(s.$dynamicRef!, s);
-      const anchor = dynamicAnchorName(s.$dynamicRef!);
-      if (anchor && refSchema.$dynamicAnchor === anchor) {
-         const scoped = [...ctx.dynamicScopes]
-            .reverse()
-            .find((scope) => scope.$dynamicAnchor === anchor);
-         if (scoped) {
-            refSchema = scoped;
-         }
-      }
+      const refSchema = ctx.resolver.resolveDynamicRef(
+         s.$dynamicRef!,
+         s,
+         ctx.dynamicScopes
+      );
       const result = validateResolvedRef(refSchema, value, ctx);
       if (result && !result.valid) {
          ctx.errors.push(...result.errors);
@@ -242,10 +235,15 @@ function validateResolvedRef(
    return result;
 }
 
-function dynamicAnchorName(ref: string): string | undefined {
-   const index = ref.indexOf("#");
-   if (index === -1) return undefined;
-   const fragment = ref.slice(index + 1);
-   if (!fragment || fragment.startsWith("/")) return undefined;
-   return fragment;
+export function withDynamicScope(
+   schema: Schema,
+   resolver: Resolver,
+   dynamicScopes: DynamicScopeFrame[] = []
+): DynamicScopeFrame[] {
+   const resource = resolver.resourceFor(schema);
+   const last = dynamicScopes[dynamicScopes.length - 1];
+   if (last?.resolver === resolver && last.resource === resource) {
+      return dynamicScopes;
+   }
+   return [...dynamicScopes, { resolver, resource }];
 }

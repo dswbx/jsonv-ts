@@ -2,11 +2,48 @@
 
 ## Summary
 
-Current suite status from `bun run src/test/spec/run.ts`: 2,098 total, 1,549 passed, 458 skipped, 91 optional-format failures, 0 required failures. Skips overlap, but the main skipped buckets are `$ref` 237, `$defs` 172, `unevaluatedProperties` 134, `unevaluatedItems` 71, `dependencies` 36, `vocabulary` 5.
+Current suite status from `bun run src/test/spec/run.ts`: 2,098 total, 1,728 passed, 268 skipped, 102 optional-format failures, 0 required failures. Skips overlap, but the main skipped buckets are `unevaluatedProperties`, `unevaluatedItems`, `dependencies`, `vocabulary`, metaschema-only `defs.json`, and optional format precision.
 
-Reference-specific gaps are the priority. With current skips bypassed, `ref.json` only passes 39/79 in relaxed mode; `anchor.json` passes 0/8; `dynamicRef.json` passes 5/44; `refRemote.json` passes 1/31. Most strict failures are caused by `$defs` being rejected before reference evaluation.
+Reference-specific gaps were the priority. `ref.json`, `anchor.json`, `refRemote.json`, and `dynamicRef.json` now pass accepted required cases under the suite skip policy. Remaining skipped ref-adjacent cases depend on annotation/evaluated-location behavior and belong to Bucket 5.
 
 ## Progress Log
+
+### 2026-06-24 - `TBD feat: implement json schema dynamic refs`
+
+Implemented the dedicated `$dynamicRef` milestone on branch `json-schema-spec`.
+
+Current full-suite status:
+
+- `bun run types`: passed.
+- `bun test src/lib/validation/validate.spec.ts --bail`: passed, 16 pass, 0 fail.
+- `bun test --bail`: passed, 270 pass, 2 skipped, 0 fail.
+- `SPEC_ONLY='dynamicRef\.json$' bun run src/test/spec/run.ts`: passed, 46 total, 44 passed, 2 skipped, 0 required failures, 0 optional failures.
+- `SPEC_ONLY='ref\.json$|anchor\.json$|refRemote\.json$|dynamicRef\.json$|infinite-loop-detection\.json$' bun run src/test/spec/run.ts`: passed, 170 total, 167 passed, 3 skipped, 0 required failures, 0 optional failures.
+- `bun run src/test/spec/run.ts`: passed, 2,098 total, 1,728 passed, 268 skipped, 0 required failures, 102 optional failures.
+
+Bucket status:
+
+| Bucket | Status | Notes |
+| --- | --- | --- |
+| Bucket 1: local `$ref` and `$defs` | Done for accepted suite scope | Still 78/79 direct for `ref.json`; the remaining skipped case depends on annotation/unevaluated behavior. |
+| Bucket 2: URI, `$id`, and `$anchor` resolver | Done for required anchor/ref cases | `anchor.json` passes 8/8. Infinite-loop detection passes 2/2. |
+| Bucket 3: remote refs | Done for required `refRemote.json` | `refRemote.json` passes 31/31 from local registered fixtures. |
+| Bucket 4: `$dynamicRef` | Done for accepted suite scope | Dynamic scope is now resource-aware and supports local, relative, remote, boolean-schema, and resource-boundary dynamic refs. Focused suite passes 44/46 with 2 `strict-tree` tests skipped because they depend on `unevaluatedProperties`; direct required measurement without skips is 43/44. |
+| Bucket 5: remaining skipped buckets | Not done | `unevaluatedItems`, `unevaluatedProperties`, `dependencies`, `vocabulary`, metaschema-only `defs.json`, and optional format precision remain future work. |
+
+Important implementation details:
+
+- `ValidationOptions.dynamicScopes` now stores resource-aware frames, not bare schemas.
+- `Resolver.resolveDynamicRef(ref, from, dynamicScopes)` first resolves the dynamic ref statically, then searches active schema resources from outermost to innermost for a matching `$dynamicAnchor`.
+- Validation pushes a dynamic-scope frame when entering a new schema resource, so inactive applicator branches do not leak scope into later branches.
+- Embedded schemas with their own `$id` are also indexed at their parent resource JSON Pointer, so refs such as `bar#/$defs/item` resolve while the embedded schema still owns its canonical resource URI.
+- `src/test/spec/run.ts` no longer skips schemas just because they contain `dynamicRef` or `$dynamicRef`; tests are skipped only if they also hit a future bucket such as `unevaluatedProperties`.
+
+Obstacles and lessons:
+
+- Dynamic scope must be resource-scoped, not schema-scoped. The required examples intentionally place overriding `$dynamicAnchor` definitions in a resource without directly evaluating that subschema.
+- Dynamic anchor lookup must search outermost to innermost active resources. Searching the newest frame first selects the bookend/default anchor and misses caller overrides.
+- The `strict-tree` misspelled-field case now exercises correct dynamic reference traversal, but still cannot fail until `unevaluatedProperties` records evaluated properties across refs.
 
 ### 2026-06-24 - `f74a6ef feat: improve json schema spec refs`
 
@@ -88,8 +125,8 @@ When continuing this work, update this file before or with each commit:
 ## Interfaces
 
 - Public API: no intentional breaking changes.
-- Internal API: `Resolver.resolve(ref: string, from?: Schema): Schema`.
-- Internal validation context may gain reference metadata: current schema/resource URI, dynamic scope stack, and visited evaluation keys.
+- Internal API: `Resolver.resolve(ref: string, from?: Schema): Schema` and `Resolver.resolveDynamicRef(ref: string, from: Schema, dynamicScopes?: DynamicScopeFrame[]): Schema`.
+- Internal validation context now carries resource-aware dynamic scope frames and visited evaluation keys.
 - Schema typings should include `$anchor`, `$dynamicAnchor`, and `$dynamicRef` in internal/base schema options.
 
 ## Test Plan
