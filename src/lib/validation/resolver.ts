@@ -10,6 +10,11 @@ type SchemaMeta = {
    validationVocabulary: boolean;
 };
 
+export type ResolverOptions = {
+   rawRoot?: unknown;
+   compileRaw?: (schema: unknown) => Schema;
+};
+
 export type DynamicScopeFrame = {
    resolver: Resolver;
    resource: string;
@@ -20,10 +25,14 @@ export class Resolver {
    private static owners = new WeakMap<Schema, Resolver>();
    private refs: Map<string, Schema>;
    private meta: WeakMap<Schema, SchemaMeta>;
+   private rawRoot?: unknown;
+   private compileRaw?: (schema: unknown) => Schema;
 
-   constructor(readonly root: Schema) {
+   constructor(readonly root: Schema, options: ResolverOptions = {}) {
       this.refs = new Map<string, Schema>();
       this.meta = new WeakMap<Schema, SchemaMeta>();
+      this.rawRoot = options.rawRoot;
+      this.compileRaw = options.compileRaw;
       this.index(
          root,
          [],
@@ -65,6 +74,9 @@ export class Resolver {
 
       const rootFallback = getJsonPath(this.root, ref);
       if (isSchema(rootFallback)) return rootFallback;
+
+      const rawFallback = this.resolveRawPointer(normalized);
+      if (rawFallback) return rawFallback;
 
       throw new Error(`ref not found: ${ref}`);
    }
@@ -125,6 +137,30 @@ export class Resolver {
 
    static ownerOf(schema: Schema): Resolver | undefined {
       return Resolver.owners.get(schema);
+   }
+
+   private resolveRawPointer(normalized: string): Schema | undefined {
+      if (!this.rawRoot || !this.compileRaw) return undefined;
+
+      const [resource, fragment] = this.splitFragment(normalized);
+      if (!fragment?.startsWith("/")) return undefined;
+      if (resource !== this.resourceFor(this.root)) return undefined;
+
+      const rawTarget = getJsonPath(this.rawRoot as object, `#${fragment}`);
+      if (rawTarget === undefined) return undefined;
+
+      const schema = this.compileRaw(rawTarget);
+      const rootMeta = this.meta.get(this.root);
+      this.index(
+         schema,
+         fromJsonPointer(`#${fragment}`),
+         resource,
+         resource,
+         rootMeta?.draft || "2020-12",
+         rootMeta?.validationVocabulary ?? true
+      );
+      this.refs.set(normalized, schema);
+      return schema;
    }
 
    private index(
@@ -285,6 +321,7 @@ export class Resolver {
       return (
          key === "~standard" ||
          key === "_resolver" ||
+         key === "_resolverOptions" ||
          key === "bool" ||
          key === "type" ||
          key === "$id" ||
