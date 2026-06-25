@@ -4,7 +4,7 @@ import type { StandardSchemaV1 } from "@standard-schema/spec";
 import { error, valid } from "../utils/details";
 import { fromJsonPointer, getPath } from "../utils/path";
 import { coerce, type CoercionOptions } from "../validation/coerce";
-import { Resolver } from "../validation/resolver";
+import { Resolver, type ResolverOptions } from "../validation/resolver";
 import {
    validate,
    withDynamicScope,
@@ -80,6 +80,7 @@ export class Schema<
    };
 
    protected _resolver?: Resolver;
+   protected _resolverOptions?: ResolverOptions;
 
    readonly type: string | undefined;
    $id?: string;
@@ -248,7 +249,7 @@ export class Schema<
 
    getResolver(): Resolver {
       if (!this._resolver) {
-         this._resolver = new Resolver(this);
+         this._resolver = new Resolver(this, this._resolverOptions);
       }
       return this._resolver;
    }
@@ -311,7 +312,8 @@ export class Schema<
    // cannot force type this one
    // otherwise ISchemaOptions must be widened to include any
    toJSON(): JSONSchemaDefinition {
-      const { toJSON, "~standard": _, _resolver, ...rest } = this;
+      const { toJSON, "~standard": _, _resolver, _resolverOptions, ...rest } =
+         this;
       return JSON.parse(JSON.stringify(rest));
    }
 }

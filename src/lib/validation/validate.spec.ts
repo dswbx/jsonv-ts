@@ -348,6 +348,81 @@ describe("validate", () => {
       expect(schema.validate({ value: "1" }).valid).toBe(false);
    });
 
+   test("$ref resolves JSON Pointer fragments through $defs", () => {
+      const schema = fromSchema({
+         $ref: "#/$defs/R",
+         $defs: {
+            R: { type: "string" },
+         },
+      });
+
+      expect(schema.validate("x").valid).toBe(true);
+      expect(schema.validate(1).valid).toBe(false);
+   });
+
+   test("$ref resolves JSON Pointer fragments through components/schemas", () => {
+      const schema = fromSchema({
+         $ref: "#/components/schemas/R",
+         components: {
+            schemas: {
+               R: { type: "string" },
+            },
+         },
+      });
+
+      expect(schema.validate("x").valid).toBe(true);
+      expect(schema.validate(1).valid).toBe(false);
+   });
+
+   test("$ref resolves arbitrary JSON Pointer targets", () => {
+      const emptyTarget = fromSchema({
+         properties: {
+            value: { $ref: "#/components/schemas/Anything" },
+         },
+         components: {
+            schemas: {
+               Anything: {},
+            },
+         },
+      });
+
+      const booleanTarget = fromSchema({
+         properties: {
+            value: { $ref: "#/vendor/schemas/Never" },
+         },
+         vendor: {
+            schemas: {
+               Never: false,
+            },
+         },
+      });
+
+      expect(emptyTarget.validate({ value: "x" }).valid).toBe(true);
+      expect(emptyTarget.validate({ value: 1 }).valid).toBe(true);
+      expect(booleanTarget.validate({ value: "x" }).valid).toBe(false);
+   });
+
+   test("$ref resolves nested components/schemas refs from lazy targets", () => {
+      const schema = fromSchema({
+         $ref: "#/components/schemas/Wrapper",
+         components: {
+            schemas: {
+               Wrapper: {
+                  type: "object",
+                  properties: {
+                     value: { $ref: "#/components/schemas/Value" },
+                  },
+                  required: ["value"],
+               },
+               Value: { type: "integer" },
+            },
+         },
+      });
+
+      expect(schema.validate({ value: 1 }).valid).toBe(true);
+      expect(schema.validate({ value: "1" }).valid).toBe(false);
+   });
+
    test("unevaluatedProperties sees allOf annotations but not cousin annotations", () => {
       const schema = fromSchema({
          allOf: [

@@ -62,12 +62,28 @@ export type AnySchema<Type = unknown> = lib.Schema<lib.ISchemaOptions, Type> &
    JSONSchema<lib.Schema> &
    lib.ISchemaFn;
 
+function withRawResolver<S extends lib.Schema>(
+   schema: S,
+   rawRoot: unknown
+): S {
+   Object.defineProperty(schema, "_resolverOptions", {
+      value: {
+         rawRoot,
+         compileRaw: (raw: unknown) => fromSchema(raw) as lib.Schema,
+      },
+      configurable: true,
+      writable: true,
+   });
+   return schema;
+}
+
 export function fromSchema<Type = unknown>(_schema: any): AnySchema<Type> {
    if (isBoolean(_schema)) {
       return lib.booleanSchema(_schema) as any;
    }
 
-   const schema = structuredClone(_schema);
+   const rawSchema = structuredClone(_schema);
+   const schema = structuredClone(rawSchema);
 
    if (!isObject(schema)) {
       throw new InvalidRawSchemaError(
@@ -172,25 +188,31 @@ export function fromSchema<Type = unknown>(_schema: any): AnySchema<Type> {
    if (isTypeSchema(schema)) {
       switch (schema.type) {
          case "string":
-            return lib.string(schema) as any;
+            return withRawResolver(lib.string(schema) as any, rawSchema);
          case "number":
-            return lib.number(schema) as any;
+            return withRawResolver(lib.number(schema) as any, rawSchema);
          case "integer":
-            return lib.integer(schema) as any;
+            return withRawResolver(lib.integer(schema) as any, rawSchema);
          case "boolean":
-            return lib.boolean(schema) as any;
+            return withRawResolver(lib.boolean(schema) as any, rawSchema);
          case "object": {
             // @ts-ignore
             const { properties, ...rest } = schema;
-            return lib.object(properties as any, rest as any) as any;
+            return withRawResolver(
+               lib.object(properties as any, rest as any) as any,
+               rawSchema
+            );
          }
          case "array": {
             // @ts-ignore
             const { items, ...rest } = schema;
-            return lib.array(items as any, rest as any) as any;
+            return withRawResolver(
+               lib.array(items as any, rest as any) as any,
+               rawSchema
+            );
          }
       }
    }
 
-   return lib.any(schema as any);
+   return withRawResolver(lib.any(schema as any) as any, rawSchema);
 }
