@@ -65,10 +65,18 @@ export interface IObjectOptions extends ISchemaOptions {
    $defs?: Record<string, Schema>;
    patternProperties?: Record<string, Schema>;
    additionalProperties?: Schema | false;
+   unevaluatedProperties?: Schema | false;
+   dependencies?: Record<string, Schema | string[]>;
+   dependentRequired?: Record<string, string[]>;
+   dependentSchemas?: Record<string, Schema>;
    minProperties?: number;
    maxProperties?: number;
    propertyNames?: Schema;
 }
+
+type IRawObjectOptions = IObjectOptions & {
+   required?: string[];
+};
 
 // @todo: add base object type
 // @todo: add generic coerce and template that also works with additionalProperties, etc.
@@ -90,15 +98,17 @@ export class ObjectSchema<
    required: string[] | undefined;
    //additionalProperties: Schema | undefined;
 
-   constructor(properties: P, o?: O) {
-      let required: string[] | undefined = [];
+   constructor(properties: P, o?: O & IRawObjectOptions) {
+      let required: string[] | undefined = Array.isArray(o?.required)
+         ? [...o.required]
+         : [];
       for (const [key, value] of Object.entries(properties || {})) {
          invariant(
             isSchema(value),
             "properties must be managed schemas",
             value
          );
-         if (!value[symbol].optional) {
+         if (!value[symbol].optional && !required.includes(key)) {
             required.push(key);
          }
       }

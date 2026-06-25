@@ -34,6 +34,23 @@ describe("ref", () => {
       expect(schema.$ref).toEqual("#$defs/somewhereelse");
    });
 
+   test("ref with explicit pointer preserves target static and coerced types", () => {
+      const referenced = string({
+         $id: "string",
+         coerce: () => "coerced" as const,
+      });
+      const schema = ref(referenced, "#/$defs/string");
+
+      type Inferred = Static<typeof schema>;
+      expectTypeOf<Inferred>().toEqualTypeOf<string>();
+
+      type Coerced = StaticCoerced<typeof schema>;
+      expectTypeOf<Coerced>().toEqualTypeOf<"coerced">();
+
+      expectTypeOf<(typeof schema)["$ref"]>().toEqualTypeOf<"#/$defs/string">();
+      expect(schema.$ref).toEqual("#/$defs/string");
+   });
+
    test("refId", () => {
       const s = refId("#/$defs/string");
       expect(s.$ref).toEqual("#/$defs/string");
@@ -46,6 +63,9 @@ describe("ref", () => {
       expectTypeOf<(typeof s3)["$ref"]>().toEqualTypeOf<string>();
       expectTypeOf<Static<typeof s3>>().toEqualTypeOf<{ foo: 1 }>();
       expect(s3.$ref).toEqual("whatever");
+
+      type Explicit = Static<typeof s3>;
+      expectTypeOf<Explicit>().toEqualTypeOf<{ foo: 1 }>();
    });
 
    test("rec with coerce", () => {

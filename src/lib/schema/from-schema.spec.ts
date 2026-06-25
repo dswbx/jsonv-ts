@@ -1,6 +1,8 @@
 import { describe, expect, test } from "bun:test";
+import { expectTypeOf } from "expect-type";
 import { Schema } from "./schema";
 import { fromSchema } from "./from-schema";
+import type { Static } from "../static";
 
 const expectType = (
    schema: Schema,
@@ -112,6 +114,38 @@ describe("fromSchema", () => {
       expect(s.properties?.name?.type).toEqual("string");
       expect(s.properties?.age?.type).toEqual("number");
       expect(s.required).toEqual(["name"]);
+   });
+
+   test("raw required is preserved independently from builder optional DX", () => {
+      const s = fromSchema({
+         type: "object",
+         properties: {
+            name: { type: "string" },
+            age: { type: "number" },
+         },
+         required: ["missing"],
+      });
+
+      expect(s.required).toEqual(["missing"]);
+      expect(s.validate({ name: "Ada", age: 37 }).valid).toBe(false);
+      expect(s.validate({ missing: true }).valid).toBe(true);
+   });
+
+   test("explicit generic type is the raw schema type escape hatch", () => {
+      const s = fromSchema<{ name: string; age?: number }>({
+         type: "object",
+         properties: {
+            name: { type: "string" },
+            age: { type: "number" },
+         },
+         required: ["name"],
+      });
+
+      type Inferred = Static<typeof s>;
+      expectTypeOf<Inferred>().toEqualTypeOf<{
+         name: string;
+         age?: number;
+      }>();
    });
 
    test("examples", () => {

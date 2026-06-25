@@ -30,7 +30,7 @@ export class RefType<
          },
          {
             coerce: (value: unknown, opts?: CoercionOptions) => {
-               const ref = opts?.resolver?.resolve(this.$ref!);
+               const ref = opts?.resolver?.resolve(this.$ref!, this);
                if (!isSchema(ref)) {
                   throw new Error(`Ref not found: ${this.$ref}`);
                }
@@ -59,16 +59,15 @@ export const refId = <T = unknown, const Ref extends string = string>(
 export const recursive = <const T extends Schema>(
    cb: (thisSchema: Schema) => T
 ) => {
-   return cb(
-      new Schema({
-         $ref: "#",
-         coerce: (value: unknown, opts?: CoercionOptions) => {
-            const ref = opts?.resolver?.resolve("#");
-            if (!isSchema(ref)) {
-               throw new Error(`Ref not found: #`);
-            }
-            return ref.coerce(value, opts);
-         },
-      })
-   ) as T;
+   const self = new Schema({
+      $ref: "#",
+      coerce: (value: unknown, opts?: CoercionOptions) => {
+         const ref = opts?.resolver?.resolve("#", self);
+         if (!isSchema(ref)) {
+            throw new Error(`Ref not found: #`);
+         }
+         return ref.coerce(value, opts);
+      },
+   });
+   return cb(self) as T;
 };

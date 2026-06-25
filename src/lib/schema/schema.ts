@@ -7,6 +7,8 @@ import { coerce, type CoercionOptions } from "../validation/coerce";
 import { Resolver } from "../validation/resolver";
 import {
    validate,
+   withDynamicScope,
+   createEvaluatedLocations,
    type ValidationOptions,
    type ValidationResult,
 } from "../validation/validate";
@@ -24,6 +26,10 @@ export interface IBaseSchemaOptions {
    $id?: string;
    $ref?: string;
    $schema?: string;
+   $anchor?: string;
+   $dynamicAnchor?: string;
+   $dynamicRef?: string;
+   $vocabulary?: Record<string, boolean>;
    title?: string;
    description?: string;
    default?: any;
@@ -79,6 +85,10 @@ export class Schema<
    $id?: string;
    $ref?: string;
    $schema?: string;
+   $anchor?: string;
+   $dynamicAnchor?: string;
+   $dynamicRef?: string;
+   $vocabulary?: Record<string, boolean>;
    title?: string;
    description?: string;
    readOnly?: boolean;
@@ -168,6 +178,20 @@ export class Schema<
          resolver: opts?.resolver || this.getResolver(),
          depth: opts?.depth ? opts.depth + 1 : 0,
          skipClone: opts?.skipClone ?? true,
+         evaluatingRefs: opts?.evaluatingRefs || new Set<string>(),
+         dynamicScopes: withDynamicScope(
+            this,
+            opts?.resolver || this.getResolver(),
+            opts?.dynamicScopes
+         ),
+         evaluated: opts?.evaluated || createEvaluatedLocations(),
+         localEvaluatedBase: opts?.localEvaluatedBase || createEvaluatedLocations(),
+         assertFormat: opts?.assertFormat ?? true,
+         disableValidationVocab:
+            opts?.disableValidationVocab ??
+            (opts?.resolver || this.getResolver()).disablesValidationVocabulary(
+               this
+            ),
       };
 
       const customValidate = this[schemaSymbol].raw?.validate;

@@ -1,10 +1,20 @@
-import { getTestFiles, loadTest, recurisvelyHasKeys } from "./utils";
+import { getTestFiles, loadTest } from "./utils";
 import { fromSchema } from "../../lib/schema/from-schema";
 import path from "node:path";
 import c from "picocolors";
 import type { JSONSchema } from "../../lib/types";
+import { registerSpecRemotes } from "./remotes";
 
-const files = await getTestFiles("draft2020-12", { includeOptional: true });
+await registerSpecRemotes();
+
+const only = Bun.env.SPEC_ONLY
+   ? Bun.env.SPEC_ONLY.split(",").map((item) => new RegExp(item.trim()))
+   : undefined;
+
+const files = await getTestFiles("draft2020-12", {
+   includeOptional: true,
+   only,
+});
 
 const tests: (Awaited<ReturnType<typeof loadTest>> & { path: string })[] = [];
 for (const file of files) {
@@ -34,30 +44,7 @@ type SkipFn = (ctx: {
    >["content"][number]["tests"][number];
 }) => boolean;
 
-const skips: SkipFn[] = [
-   ({ schema, file }) =>
-      [
-         // definitions
-         "$ref",
-         "$defs",
-         // evaluation
-         "dependencies",
-         "unevaluatedItems",
-         "unevaluatedProperties",
-         // meta
-         "vocabulary",
-         // misc
-         "float-overflow",
-      ].some((k) => file.includes(k) || recurisvelyHasKeys(schema, [k])),
-
-   // skip specific tests
-   ({ test }) =>
-      (test &&
-         ["is only an annotation by default"].some((s) =>
-            test.description.includes(s)
-         )) ||
-      false,
-];
+const skips: SkipFn[] = [];
 
 const abort_early = true;
 const abort_early_optional = false;
@@ -97,7 +84,11 @@ for (const testSuite of tests) {
                continue;
             }
             try {
-               const result = schema.validate(test.data);
+               const result = schema.validate(test.data, {
+                  assertFormat: !test.description.includes(
+                     "is only an annotation by default"
+                  ),
+               });
                if (result.valid !== test.valid) {
                   throw result;
                }
@@ -181,7 +172,7 @@ function printStats() {
 }
 
 const amount = 1414;
-const passed = stats.passed >= amount;
+const passed = only ? stats.failed === 0 : stats.passed >= amount;
 if (!passed) {
    process.exit(1);
 }
