@@ -35,11 +35,7 @@
       "build:types": "tsc --emitDeclarationOnly",
       "benchmark": "bun run src/test/validation/benchmark.ts",
       "fetch:spec": "rm -rf src/test/spec/lib src/test/spec/remotes && npx giget gh:json-schema-org/JSON-Schema-Test-Suite/tests src/test/spec/lib && npx giget gh:json-schema-org/JSON-Schema-Test-Suite/remotes src/test/spec/remotes && mkdir -p src/test/spec/remotes/draft2020-12/meta && curl -fsSL https://json-schema.org/draft/2020-12/schema -o src/test/spec/remotes/draft2020-12/schema.json && for name in core applicator unevaluated validation meta-data format-annotation content; do curl -fsSL \"https://json-schema.org/draft/2020-12/meta/$name\" -o \"src/test/spec/remotes/draft2020-12/meta/$name.json\"; done",
-      "prepublishOnly": "bun run build",
-      "release:patch": "bun run test && npm version patch && git push && git push --tags && npm publish",
-      "release:minor": "bun run test && npm version minor && git push && git push --tags && npm publish",
-      "release:major": "bun run test && npm version major && git push && git push --tags && npm publish",
-      "release:pre": "bun run test && npm version prerelease --preid rc --no-git-tag-version && npm publish --tag rc"
+      "prepublishOnly": "bun run build"
    },
    "devDependencies": {
       "@cfworker/json-schema": "^4.1.1",

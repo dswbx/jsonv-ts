@@ -1,0 +1,620 @@
+name: Release
+
+on:
+   workflow_dispatch:
+      inputs:
+         channel:
+            description: "Release channel to publish"
+            required: true
+            type: choice
+            default: stable
+            options:
+               - stable
+               - next
+         version_specifier:
+            description: "Stable version bump. Ignored for channel=next."
+            required: true
+            type: choice
+            default: patch
+            options:
+               - patch
+               - minor
+               - major
+   push:
+      branches: [main]
+      paths:
+         - "package.json"
+
+env:
+   PACKAGE_NAME: "jsonv-ts"
+   NPM_REGISTRY: https://registry.npmjs.org
+
+permissions:
+   contents: read
+
+concurrency:
+   group: release-${{ github.workflow }}
+   cancel-in-progress: false
+
+jobs:
+   prepare-stable:
+      name: Prepare stable release PR
+      if: ${{ github.event_name == 'workflow_dispatch' && inputs.channel == 'stable' && github.ref == 'refs/heads/main' }}
+      runs-on: ubuntu-latest
+      permissions:
+         contents: write
+         pull-requests: write
+      steps:
+         - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+           with:
+              fetch-depth: 0
+
+         - name: Setup Node.js
+           uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+           with:
+              node-version: "24"
+
+         - name: Setup Bun
+           uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+           with:
+              bun-version: "1.2.19"
+
+         - name: Install dependencies
+           run: bun install --frozen-lockfile
+
+         - name: Resolve release version
+           id: version
+           env:
+              VERSION_SPECIFIER: ${{ inputs.version_specifier }}
+           run: |
+              set -euo pipefail
+              VERSION=$(node <<'NODE'
+              const fs = require("fs");
+
+              const specifier = process.env.VERSION_SPECIFIER.trim();
+              const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+              const current = pkg.version;
+
+              const semver = /^(\d+)\.(\d+)\.(\d+)$/;
+              const currentMatch = current.match(semver);
+              if (!currentMatch) {
+                throw new Error(`Current package version must be stable semver, got ${current}`);
+              }
+
+              const [major, minor, patch] = currentMatch.slice(1).map(Number);
+              if (specifier === "patch") console.log(`${major}.${minor}.${patch + 1}`);
+              else if (specifier === "minor") console.log(`${major}.${minor + 1}.0`);
+              else if (specifier === "major") console.log(`${major + 1}.0.0`);
+              else throw new Error(`Invalid version_specifier: ${specifier}`);
+              NODE
+              )
+
+              echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+              echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
+
+         - name: Validate release does not already exist
+           env:
+              TAG: ${{ steps.version.outputs.tag }}
+              VERSION: ${{ steps.version.outputs.version }}
+              PACKAGE_NAME: ${{ env.PACKAGE_NAME }}
+           run: |
+              set -euo pipefail
+              git fetch --tags origin
+
+              if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
+                 echo "Tag ${TAG} already exists."
+                 exit 1
+              fi
+
+              if npm view "${PACKAGE_NAME}@${VERSION}" version >/dev/null 2>&1; then
+                 echo "npm package ${PACKAGE_NAME}@${VERSION} already exists."
+                 exit 1
+              fi
+
+         - name: Bump package version
+           env:
+              VERSION: ${{ steps.version.outputs.version }}
+           run: |
+              set -euo pipefail
+              node <<'NODE'
+              const fs = require("fs");
+              const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+              pkg.version = process.env.VERSION;
+              fs.writeFileSync("package.json", `${JSON.stringify(pkg, null, 3)}\n`);
+              NODE
+
+         - name: Create release PR
+           env:
+              GH_TOKEN: ${{ github.token }}
+              PACKAGE_NAME: ${{ env.PACKAGE_NAME }}
+              TAG: ${{ steps.version.outputs.tag }}
+              VERSION: ${{ steps.version.outputs.version }}
+           run: |
+              set -euo pipefail
+
+              git config user.name "github-actions[bot]"
+              git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+
+              BRANCH="release/${TAG}"
+              git checkout -b "$BRANCH"
+              git add package.json
+              git commit -m "chore(release): ${TAG}"
+              git push --set-upstream origin "$BRANCH"
+
+              gh pr create \
+                 --base main \
+                 --head "$BRANCH" \
+                 --title "chore(release): ${TAG}" \
+                 --body "Prepares ${PACKAGE_NAME}@${VERSION} for release. Merge this PR to publish the npm package, push the ${TAG} tag, and create the GitHub Release."
+
+   validate-stable:
+      name: Validate stable release
+      if: "${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, 'chore(release): v') }}"
+      runs-on: ubuntu-latest
+      outputs:
+         version: ${{ steps.version.outputs.version }}
+         tag: ${{ steps.version.outputs.tag }}
+         npm_exists: ${{ steps.target.outputs.npm_exists }}
+      steps:
+         - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+           with:
+              fetch-depth: 0
+
+         - name: Setup Node.js
+           uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+           with:
+              node-version: "24"
+              registry-url: ${{ env.NPM_REGISTRY }}
+
+         - name: Setup Bun
+           uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+           with:
+              bun-version: "1.2.19"
+
+         - name: Install dependencies
+           run: bun install --frozen-lockfile
+
+         - name: Resolve release metadata
+           id: version
+           run: |
+              set -euo pipefail
+              VERSION=$(node -p "require('./package.json').version")
+              if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+                 echo "Stable release requires a stable semver version, got ${VERSION}."
+                 exit 1
+              fi
+              echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+              echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
+
+         - name: Validate release target
+           id: target
+           env:
+              TAG: ${{ steps.version.outputs.tag }}
+              VERSION: ${{ steps.version.outputs.version }}
+              PACKAGE_NAME: ${{ env.PACKAGE_NAME }}
+           run: |
+              set -euo pipefail
+              git fetch --tags origin
+
+              TAG_EXISTS=false
+              if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
+                 TAG_EXISTS=true
+                 TAG_COMMIT=$(git rev-list -n 1 "$TAG")
+                 if [[ "$TAG_COMMIT" != "$GITHUB_SHA" ]]; then
+                    echo "Tag ${TAG} already exists on ${TAG_COMMIT}, not current commit ${GITHUB_SHA}."
+                    exit 1
+                 fi
+              fi
+
+              if npm view "${PACKAGE_NAME}@${VERSION}" version >/dev/null 2>&1; then
+                 if [[ "$TAG_EXISTS" != "true" ]]; then
+                    echo "npm package ${PACKAGE_NAME}@${VERSION} already exists, but tag ${TAG} does not."
+                    exit 1
+                 fi
+
+                 echo "npm_exists=true" >> "$GITHUB_OUTPUT"
+              else
+                 echo "npm_exists=false" >> "$GITHUB_OUTPUT"
+              fi
+
+         - name: Check types
+           run: bun run types
+
+         - name: Run unit tests
+           run: bun run test:unit
+
+         - name: Run spec tests
+           run: bun run fetch:spec && bun run test:spec
+
+         - name: Build package
+           run: bun run build
+
+         - name: Pack package
+           if: ${{ steps.target.outputs.npm_exists != 'true' }}
+           run: |
+              set -euo pipefail
+              PACK_DIR="${RUNNER_TEMP}/release-pack"
+              rm -rf "$PACK_DIR"
+              mkdir -p "$PACK_DIR"
+
+              bun pm pack --destination "$PACK_DIR" --quiet
+              TARBALL="$(find "$PACK_DIR" -maxdepth 1 -name '*.tgz' -print -quit)"
+              if [[ -z "$TARBALL" ]]; then
+                 echo "bun pm pack did not create a package tarball."
+                 exit 1
+              fi
+
+              MANIFEST="${RUNNER_TEMP}/release-package.json"
+              tar -xOf "$TARBALL" package/package.json > "$MANIFEST"
+              if grep -E 'catalog:|workspace:' "$MANIFEST"; then
+                 echo "Packed package.json still contains unresolved workspace protocol ranges."
+                 exit 1
+              fi
+
+         - name: Upload package artifact
+           if: ${{ steps.target.outputs.npm_exists != 'true' }}
+           uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+           with:
+              name: release-package-${{ steps.version.outputs.version }}
+              path: ${{ runner.temp }}/release-pack/*.tgz
+              if-no-files-found: error
+
+   publish-stable:
+      name: Publish stable release
+      needs: validate-stable
+      if: "${{ github.event_name == 'push' && github.ref == 'refs/heads/main' && contains(github.event.head_commit.message, 'chore(release): v') }}"
+      runs-on: ubuntu-latest
+      environment: npm-publish
+      permissions:
+         contents: write
+         id-token: write
+      steps:
+         - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+           with:
+              fetch-depth: 0
+
+         - name: Setup Node.js
+           uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+           with:
+              node-version: "24"
+              registry-url: ${{ env.NPM_REGISTRY }}
+
+         - name: Validate release target
+           env:
+              TAG: ${{ needs.validate-stable.outputs.tag }}
+              VERSION: ${{ needs.validate-stable.outputs.version }}
+              PACKAGE_NAME: ${{ env.PACKAGE_NAME }}
+           run: |
+              set -euo pipefail
+              git fetch --tags origin
+
+              TAG_EXISTS=false
+              if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
+                 TAG_EXISTS=true
+                 TAG_COMMIT=$(git rev-list -n 1 "$TAG")
+                 if [[ "$TAG_COMMIT" != "$GITHUB_SHA" ]]; then
+                    echo "Tag ${TAG} already exists on ${TAG_COMMIT}, not current commit ${GITHUB_SHA}."
+                    exit 1
+                 fi
+              fi
+
+              if npm view "${PACKAGE_NAME}@${VERSION}" version >/dev/null 2>&1; then
+                 if [[ "$TAG_EXISTS" != "true" ]]; then
+                    echo "npm package ${PACKAGE_NAME}@${VERSION} already exists, but tag ${TAG} does not."
+                    exit 1
+                 fi
+              fi
+
+         - name: Create and push tag
+           env:
+              TAG: ${{ needs.validate-stable.outputs.tag }}
+           run: |
+              set -euo pipefail
+              git config user.name "github-actions[bot]"
+              git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+              if ! git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
+                 git tag -a "$TAG" -m "$TAG"
+                 git push origin "$TAG"
+              fi
+
+         - name: Download package artifact
+           if: ${{ needs.validate-stable.outputs.npm_exists != 'true' }}
+           uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+           with:
+              name: release-package-${{ needs.validate-stable.outputs.version }}
+              path: ${{ runner.temp }}/release-pack
+
+         - name: Publish package
+           if: ${{ needs.validate-stable.outputs.npm_exists != 'true' }}
+           run: |
+              set -euo pipefail
+              npm install -g npm@latest
+              npm --version
+
+              TARBALL="$(find "${RUNNER_TEMP}/release-pack" -maxdepth 1 -name '*.tgz' -print -quit)"
+              if [[ -z "$TARBALL" ]]; then
+                 echo "Downloaded package artifact did not contain a tarball."
+                 exit 1
+              fi
+
+              npm publish "$TARBALL" --access public --tag latest --ignore-scripts
+
+         - name: Resolve previous stable tag
+           id: prev
+           env:
+              TAG: ${{ needs.validate-stable.outputs.tag }}
+           run: |
+              set -euo pipefail
+              git fetch --tags origin
+              PREV=$(git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname \
+                 | grep -Ev -- '-(next|alpha|beta|rc)\.' \
+                 | grep -v "^${TAG}$" | head -n1 || true)
+              echo "tag=${PREV}" >> "$GITHUB_OUTPUT"
+
+         - name: Create GitHub Release
+           env:
+              GH_TOKEN: ${{ github.token }}
+              TAG: ${{ needs.validate-stable.outputs.tag }}
+              PREV_TAG: ${{ steps.prev.outputs.tag }}
+           run: |
+              set -euo pipefail
+              gh release create "$TAG" \
+                 --title "$TAG" \
+                 --verify-tag \
+                 --generate-notes \
+                 ${PREV_TAG:+--notes-start-tag "$PREV_TAG"}
+
+   validate-next:
+      name: Validate next prerelease
+      if: ${{ github.event_name == 'workflow_dispatch' && inputs.channel == 'next' && github.ref == 'refs/heads/main' }}
+      runs-on: ubuntu-latest
+      outputs:
+         version: ${{ steps.version.outputs.version }}
+         tag: ${{ steps.version.outputs.tag }}
+      steps:
+         - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+           with:
+              fetch-depth: 0
+
+         - name: Setup Node.js
+           uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+           with:
+              node-version: "24"
+              registry-url: ${{ env.NPM_REGISTRY }}
+
+         - name: Setup Bun
+           uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+           with:
+              bun-version: "1.2.19"
+
+         - name: Install dependencies
+           run: bun install --frozen-lockfile
+
+         - name: Resolve next version
+           id: version
+           env:
+              PACKAGE_NAME: ${{ env.PACKAGE_NAME }}
+           run: |
+              set -euo pipefail
+              git fetch --tags origin
+
+              VERSION=$(node <<'NODE'
+              const { execFileSync, execSync } = require("child_process");
+
+              const packageName = process.env.PACKAGE_NAME;
+              let latest = "";
+              try {
+                latest = execFileSync("npm", ["view", packageName, "dist-tags.latest"], { encoding: "utf8" }).trim();
+              } catch {
+                const stableTags = execSync("git tag --list 'v[0-9]*.[0-9]*.[0-9]*' --sort=-v:refname", { encoding: "utf8" })
+                  .split("\n")
+                  .map((tag) => tag.trim())
+                  .filter((tag) => /^v\d+\.\d+\.\d+$/.test(tag));
+                latest = stableTags[0]?.slice(1) ?? "";
+              }
+
+              const latestMatch = latest.match(/^(\d+)\.(\d+)\.(\d+)$/);
+              if (!latestMatch) {
+                throw new Error(`Could not resolve a stable latest version, got ${latest || "(empty)"}`);
+              }
+
+              const [major, minor, patch] = latestMatch.slice(1).map(Number);
+              const base = `${major}.${minor}.${patch + 1}`;
+
+              let npmVersions = [];
+              try {
+                npmVersions = JSON.parse(execFileSync("npm", ["view", packageName, "versions", "--json"], { encoding: "utf8" }));
+              } catch {
+                npmVersions = [];
+              }
+              if (!Array.isArray(npmVersions)) npmVersions = [npmVersions].filter(Boolean);
+
+              const gitTags = execSync(`git tag --list 'v${base}-next.*'`, { encoding: "utf8" })
+                .split("\n")
+                .map((tag) => tag.trim().replace(/^v/, ""))
+                .filter(Boolean);
+
+              let highest = 0;
+              const pattern = new RegExp(`^${base.replaceAll(".", "\\.")}-next\\.(\\d+)$`);
+              for (const version of [...npmVersions, ...gitTags]) {
+                const match = String(version).match(pattern);
+                if (match) highest = Math.max(highest, Number(match[1]));
+              }
+
+              console.log(`${base}-next.${highest + 1}`);
+              NODE
+              )
+
+              echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
+              echo "tag=v${VERSION}" >> "$GITHUB_OUTPUT"
+
+         - name: Validate prerelease target
+           env:
+              TAG: ${{ steps.version.outputs.tag }}
+              VERSION: ${{ steps.version.outputs.version }}
+              PACKAGE_NAME: ${{ env.PACKAGE_NAME }}
+           run: |
+              set -euo pipefail
+
+              if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
+                 echo "Tag ${TAG} already exists."
+                 exit 1
+              fi
+
+              if npm view "${PACKAGE_NAME}@${VERSION}" version >/dev/null 2>&1; then
+                 echo "npm package ${PACKAGE_NAME}@${VERSION} already exists."
+                 exit 1
+              fi
+
+         - name: Bump package version for prerelease artifact
+           env:
+              VERSION: ${{ steps.version.outputs.version }}
+           run: |
+              set -euo pipefail
+              node <<'NODE'
+              const fs = require("fs");
+              const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+              pkg.version = process.env.VERSION;
+              fs.writeFileSync("package.json", `${JSON.stringify(pkg, null, 3)}\n`);
+              NODE
+
+         - name: Check types
+           run: bun run types
+
+         - name: Run unit tests
+           run: bun run test:unit
+
+         - name: Build package
+           run: bun run build
+
+         - name: Pack package
+           run: |
+              set -euo pipefail
+              PACK_DIR="${RUNNER_TEMP}/release-next-pack"
+              rm -rf "$PACK_DIR"
+              mkdir -p "$PACK_DIR"
+
+              bun pm pack --destination "$PACK_DIR" --quiet
+              TARBALL="$(find "$PACK_DIR" -maxdepth 1 -name '*.tgz' -print -quit)"
+              if [[ -z "$TARBALL" ]]; then
+                 echo "bun pm pack did not create a package tarball."
+                 exit 1
+              fi
+
+              MANIFEST="${RUNNER_TEMP}/release-next-package.json"
+              tar -xOf "$TARBALL" package/package.json > "$MANIFEST"
+              if grep -E 'catalog:|workspace:' "$MANIFEST"; then
+                 echo "Packed package.json still contains unresolved workspace protocol ranges."
+                 exit 1
+              fi
+
+         - name: Upload package artifact
+           uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+           with:
+              name: release-package-${{ steps.version.outputs.version }}
+              path: ${{ runner.temp }}/release-next-pack/*.tgz
+              if-no-files-found: error
+
+   publish-next:
+      name: Publish next prerelease
+      needs: validate-next
+      if: ${{ github.event_name == 'workflow_dispatch' && inputs.channel == 'next' && github.ref == 'refs/heads/main' }}
+      runs-on: ubuntu-latest
+      environment: npm-publish
+      permissions:
+         contents: write
+         id-token: write
+      steps:
+         - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+           with:
+              fetch-depth: 0
+
+         - name: Setup Node.js
+           uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+           with:
+              node-version: "24"
+              registry-url: ${{ env.NPM_REGISTRY }}
+
+         - name: Download package artifact
+           uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+           with:
+              name: release-package-${{ needs.validate-next.outputs.version }}
+              path: ${{ runner.temp }}/release-next-pack
+
+         - name: Validate prerelease target
+           env:
+              TAG: ${{ needs.validate-next.outputs.tag }}
+              VERSION: ${{ needs.validate-next.outputs.version }}
+              PACKAGE_NAME: ${{ env.PACKAGE_NAME }}
+           run: |
+              set -euo pipefail
+              git fetch --tags origin
+
+              if git rev-parse -q --verify "refs/tags/${TAG}" >/dev/null; then
+                 echo "Tag ${TAG} already exists."
+                 exit 1
+              fi
+
+              if npm view "${PACKAGE_NAME}@${VERSION}" version >/dev/null 2>&1; then
+                 echo "npm package ${PACKAGE_NAME}@${VERSION} already exists."
+                 exit 1
+              fi
+
+         - name: Create tagged prerelease commit
+           env:
+              TAG: ${{ needs.validate-next.outputs.tag }}
+              VERSION: ${{ needs.validate-next.outputs.version }}
+           run: |
+              set -euo pipefail
+              node <<'NODE'
+              const fs = require("fs");
+              const pkg = JSON.parse(fs.readFileSync("package.json", "utf8"));
+              pkg.version = process.env.VERSION;
+              fs.writeFileSync("package.json", `${JSON.stringify(pkg, null, 3)}\n`);
+              NODE
+
+              git config user.name "github-actions[bot]"
+              git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+              git add package.json
+              git commit -m "chore(release): ${TAG}"
+              git tag -a "$TAG" -m "$TAG"
+              git push origin "$TAG"
+
+         - name: Publish package
+           run: |
+              set -euo pipefail
+              npm install -g npm@latest
+              npm --version
+
+              TARBALL="$(find "${RUNNER_TEMP}/release-next-pack" -maxdepth 1 -name '*.tgz' -print -quit)"
+              if [[ -z "$TARBALL" ]]; then
+                 echo "Downloaded package artifact did not contain a tarball."
+                 exit 1
+              fi
+
+              npm publish "$TARBALL" --access public --tag next --ignore-scripts
+
+         - name: Resolve previous next tag
+           id: prev
+           env:
+              TAG: ${{ needs.validate-next.outputs.tag }}
+           run: |
+              set -euo pipefail
+              git fetch --tags origin
+              PREV=$(git tag --list 'v*-next.*' --sort=-v:refname \
+                 | grep -v "^${TAG}$" | head -n1 || true)
+              echo "tag=${PREV}" >> "$GITHUB_OUTPUT"
+
+         - name: Create GitHub prerelease
+           env:
+              GH_TOKEN: ${{ github.token }}
+              TAG: ${{ needs.validate-next.outputs.tag }}
+              PREV_TAG: ${{ steps.prev.outputs.tag }}
+           run: |
+              set -euo pipefail
+              gh release create "$TAG" \
+                 --title "$TAG" \
+                 --verify-tag \
+                 --prerelease \
+                 --generate-notes \
+                 ${PREV_TAG:+--notes-start-tag "$PREV_TAG"}
