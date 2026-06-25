@@ -79,6 +79,77 @@ describe("object", () => {
       }
 
       {
+         const schema = object({
+            req: string(),
+            opt: string().optional(),
+         });
+         type Inferred = Static<typeof schema>;
+         expectTypeOf<Inferred>().toEqualTypeOf<{
+            req: string;
+            opt?: string;
+            [key: string]: unknown;
+         }>();
+         type Coerced = StaticCoerced<typeof schema>;
+         expectTypeOf<Coerced>().toEqualTypeOf<{
+            req: string;
+            opt?: string;
+            [key: string]: unknown;
+         }>();
+         assertJson(schema, {
+            type: "object",
+            properties: {
+               req: { type: "string" },
+               opt: { type: "string" },
+            },
+            required: ["req"],
+         });
+      }
+
+      {
+         const schema = object({
+            req: string(),
+            opt: string().optional(),
+         }).strict();
+         type Inferred = Static<typeof schema>;
+         expectTypeOf<Inferred>().toEqualTypeOf<{
+            req: string;
+            opt?: string;
+         }>();
+         type Coerced = StaticCoerced<typeof schema>;
+         expectTypeOf<Coerced>().toEqualTypeOf<{
+            req: string;
+            opt?: string;
+         }>();
+      }
+
+      {
+         const schema = strictObject({
+            req: string(),
+            opt: string().optional(),
+         });
+         type Inferred = Static<typeof schema>;
+         expectTypeOf<Inferred>().toEqualTypeOf<{
+            req: string;
+            opt?: string;
+         }>();
+         type Coerced = StaticCoerced<typeof schema>;
+         expectTypeOf<Coerced>().toEqualTypeOf<{
+            req: string;
+            opt?: string;
+         }>();
+      }
+
+      object(
+         {
+            req: string(),
+         },
+         {
+            // @ts-expect-error required is raw JSON Schema input, not builder DX.
+            required: ["req"],
+         }
+      );
+
+      {
          // ensure it's all schemas
          expect(() =>
             object({

@@ -113,6 +113,8 @@ describe("keywords", () => {
          expect(kw.multipleOf({ multipleOf: 2 }, 5).valid).toBe(false);
          expect(kw.multipleOf({ multipleOf: 0.5 }, 1.5).valid).toBe(true);
          expect(kw.multipleOf({ multipleOf: 0.5 }, 1.7).valid).toBe(false);
+         expect(kw.multipleOf({ multipleOf: 0.5 }, 1e308).valid).toBe(true);
+         expect(kw.multipleOf({ multipleOf: 0.3 }, 1e308).valid).toBe(false);
          expect(kw.multipleOf({ multipleOf: 2 }, "4").valid).toBe(true);
       });
 

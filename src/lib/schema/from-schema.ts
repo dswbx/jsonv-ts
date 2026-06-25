@@ -58,7 +58,7 @@ function looksLikeSchema(value: unknown): value is Record<string, unknown> {
    return isObject(value) && Object.keys(value).some((key) => schemaKeys.has(key));
 }
 
-export type AnySchema<Type = unknown> = lib.Schema<any, Type> &
+export type AnySchema<Type = unknown> = lib.Schema<lib.ISchemaOptions, Type> &
    JSONSchema<lib.Schema> &
    lib.ISchemaFn;
 

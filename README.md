@@ -1,7 +1,7 @@
 [![npm version](https://img.shields.io/npm/v/jsonv-ts.svg)](https://npmjs.org/package/jsonv-ts)
 ![gzipped size of jsonv-ts](https://img.badgesize.io/https://unpkg.com/jsonv-ts@latest/dist/lib/index.js?compression=gzip&label=jsonv-ts)
 ![gzipped size of jsonv-ts/hono](https://img.badgesize.io/https://unpkg.com/jsonv-ts@latest/dist/hono/index.js?compression=gzip&label=jsonv-ts/hono)
-![gzipped size of jsonv-ts/mcp](https://img.badgesize.io/https://unpkg.com/jsonv-ts@0.4.0/dist/mcp/index.js?compression=gzip&label=jsonv-ts/mcp)
+![gzipped size of jsonv-ts/mcp](https://img.badgesize.io/https://unpkg.com/jsonv-ts@latest/dist/mcp/index.js?compression=gzip&label=jsonv-ts/mcp)
 
 # jsonv-ts: JSON Schema Builder and Validator for TypeScript
 
@@ -24,6 +24,7 @@
    - [Unions](#unions)
    - [Any](#any)
    - [From Schema](#from-schema)
+   - [References](#references)
    - [Custom Schemas](#custom-schemas)
 - [Utilities](#utilities)
    - [TypeScript Type Generation](#typescript-type-generation)
@@ -50,11 +51,12 @@ A simple, lightweight and dependency-free TypeScript library for defining and va
 
 -  Type-safe JSON schema definition in TypeScript.
 -  Static type inference from schemas using the `Static` helper.
+-  Built-in spec-compliant validation for the latest JSON schema draft (2020-12).
 -  Hono integration for OpenAPI generation and request validation.
 -  MCP server and client implementation.
--  Support for standard JSON schema types and keywords.
+-  Support for standard JSON schema types, references, and validation keywords.
 
-The schemas composed can be used with any JSON schema validator, it strips all metadata when being JSON stringified. It has an integrated validator that can be used to validate instances against the latest JSON schema draft (2020-12).
+The schemas composed can be used with any JSON schema validator, it strips all metadata when being JSON stringified.
 
 `jsonv-ts` allows you to define JSON schemas using a TypeScript API. It provides functions for all standard JSON schema types (`object`, `string`, `number`, `array`, `boolean`) as well as common patterns like `optional` fields, union types (`anyOf`, `oneOf`, and `allOf`), and constants/enums. The `Static` type helper infers the corresponding TypeScript type directly from your schema definition.
 
@@ -454,6 +456,36 @@ There is no type inference, but it tries to read the schema added and maps it to
 
 This function is mainly added to perform the tests against the JSON Schema Test Suite.
 
+### References
+
+Use `s.ref(schema)` when the referenced schema object is available. The referenced schema must have an `$id`, and `Static` / `StaticCoerced` are inferred from that schema:
+
+```ts
+import { s, type Static } from "jsonv-ts";
+
+const user = s.object({
+   id: s.string(),
+}, { $id: "User" });
+
+const schema = s.object({
+   owner: s.ref(user),
+});
+
+type Resource = Static<typeof schema>;
+// { owner: { id: string; [key: string]: unknown }; [key: string]: unknown }
+```
+
+Use `s.refId<T>()` when only the reference string is available. TypeScript cannot infer the target type from a JSON Pointer string, so provide it explicitly:
+
+```ts
+const schema = s.object({
+   owner: s.refId<{ id: string }>("#/$defs/User"),
+});
+
+type Resource = Static<typeof schema>;
+// { owner: { id: string }; [key: string]: unknown }
+```
+
 ### Custom Schemas
 
 In case you need to define a custom schema, e.g. without `type` to be added, you may simply use `s.schema()`:
@@ -764,20 +796,22 @@ const result = schema.validate({ id: 1, username: "valid_user" });
 
 **Validation Status**
 
-- Total tests: 1955
-- Passed: 1440 (73.66%)
-- Skipped: 452 (23.12%)
+- Total tests: 2098
+- Passed: 2098 (100.00%)
+- Skipped: 0 (0.00%)
 - Failed: 0 (0.00%)
-- Optional failed: 63 (3.22%)
+- Optional failed: 0 (0.00%)
 
-Todo:
+Advanced validation features supported in the tested draft 2020-12 suite:
 
--  [ ] `$ref` and `$defs`
--  [ ] `unevaluatedItems` and `unevaluatedProperties`
--  [ ] `contentMediaType`, `contentSchema` and `contentEncoding`
--  [ ] meta schemas and `vocabulary`
--  [ ] Additional optional formats: `idn-email`, `idn-hostname`, `iri`, `iri-reference`
--  [x] Custom formats
+-  `$ref`, `$defs`, `$id`, `$anchor`, `$dynamicRef`, and `$dynamicAnchor`
+-  Local, recursive, dynamic, and registered remote references
+-  `unevaluatedItems` and `unevaluatedProperties`
+-  `dependencies`, `dependentRequired`, and `dependentSchemas`
+-  Vocabulary gating and draft-aware keyword handling
+-  Built-in and custom formats, including optional IDN, IRI, and RFC3339 cases covered by the suite
+
+Content keywords such as `contentMediaType`, `contentSchema`, and `contentEncoding` are JSON Schema annotations. `jsonv-ts` preserves them in schemas, but does not decode or validate encoded content.
 
 #### Using Standard Schema
 
@@ -847,11 +881,11 @@ console.log(schema.validate(invalidUser).valid); // false
 This project uses `bun` for package management and task running.
 
 -  **Install dependencies:** `bun install`
--  **Run tests:** `bun test` (runs both type checks and unit tests)
--  **Run unit tests:** `bun test:unit`
--  **Run JSON Schema test suite:** `bun test:spec`
--  **Run type checks:** `bun test:types`
--  **Build the library:** `bun build` (output goes to the `dist` directory)
+-  **Run tests:** `bun run test` (runs type checks, unit tests, and the JSON Schema test suite)
+-  **Run unit tests:** `bun run test:unit`
+-  **Run JSON Schema test suite:** `bun run test:spec`
+-  **Run type checks:** `bun run types`
+-  **Build the library:** `bun run build` (output goes to the `dist` directory)
 
 ## License
 

@@ -2,11 +2,43 @@
 
 ## Summary
 
-Current suite status from `bun run src/test/spec/run.ts`: 2,098 total, 2,097 passed, 1 skipped, 0 required failures, 0 optional failures. The only remaining skipped case is `optional/float-overflow.json`.
+Current suite status from `bun run src/test/spec/run.ts`: 2,098 total, 2,098 passed, 0 skipped, 0 required failures, 0 optional failures. No cases remain skipped.
 
 The original reference-specific gaps and the remaining Bucket 5 gaps are complete for the suite scope: evaluated-location tracking, unevaluated keywords, legacy `dependencies`, vocabulary gating, metaschema validation for `defs.json`, optional format precision, ECMA pattern behavior, and the cross-draft `prefixItems` case.
 
 ## Progress Log
+
+### 2026-06-24 - pending commit: complete optional float overflow
+
+Implemented the final optional float-overflow gap on branch `json-schema-spec`.
+
+Current full-suite status:
+
+- `bun test src/lib/validation/keywords.spec.ts src/lib/number/number.spec.ts src/lib/utils/utils.spec.ts --bail`: passed, 50 pass, 0 fail.
+- `SPEC_ONLY='optional/float-overflow\.json$' bun run src/test/spec/run.ts`: passed, 1 total, 1 passed, 0 skipped, 0 failures, 0 optional failures.
+- `bun run types`: passed.
+- `bun test --bail`: passed, 274 pass, 2 skipped, 0 fail.
+- `bun run src/test/spec/run.ts`: passed, 2,098 total, 2,098 passed, 0 skipped, 0 failures, 0 optional failures.
+
+Bucket status:
+
+| Bucket | Status | Notes |
+| --- | --- | --- |
+| Bucket 1: local `$ref` and `$defs` | Done | `ref.json` is no longer blocked by annotation behavior. |
+| Bucket 2: URI, `$id`, and `$anchor` resolver | Done | Anchor, pointer, resource, and loop-guard behavior remains covered by focused and full suite runs. |
+| Bucket 3: remote refs | Done | Remote fixtures remain deterministic through the local registry. |
+| Bucket 4: `$dynamicRef` | Done | Dynamic refs pass in combination with `unevaluatedProperties`. |
+| Bucket 5: remaining skipped buckets | Done | `unevaluatedItems`, `unevaluatedProperties`, `dependencies`, `vocabulary`, `defs.json`, optional format precision, ECMA regex, optional cross-draft cases, and optional float overflow pass. |
+
+Important implementation details:
+
+- `multipleOf` keeps the quotient-and-epsilon check for finite divisions.
+- When division overflows to infinity, integer values are accepted for fractional divisors whose reciprocal is effectively an integer, such as `0.5`, without accepting non-integral reciprocals such as `0.3`.
+- The `optional/float-overflow.json` skip was removed from the spec runner.
+
+Obstacles and lessons:
+
+- The failing case is not a finite-number type issue. `1e308` is finite, but `1e308 / 0.5` overflows to `Infinity`, so the previous quotient check produced `NaN` during the nearest-integer comparison.
 
 ### 2026-06-24 - `feat: complete json schema bucket 5`
 

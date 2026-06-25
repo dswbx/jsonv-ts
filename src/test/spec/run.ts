@@ -1,4 +1,4 @@
-import { getTestFiles, loadTest, recurisvelyHasKeys } from "./utils";
+import { getTestFiles, loadTest } from "./utils";
 import { fromSchema } from "../../lib/schema/from-schema";
 import path from "node:path";
 import c from "picocolors";
@@ -44,13 +44,7 @@ type SkipFn = (ctx: {
    >["content"][number]["tests"][number];
 }) => boolean;
 
-const skips: SkipFn[] = [
-   ({ schema, file }) =>
-      [
-         // misc
-         "float-overflow",
-      ].some((k) => file.includes(k) || recurisvelyHasKeys(schema, [k])),
-];
+const skips: SkipFn[] = [];
 
 const abort_early = true;
 const abort_early_optional = false;

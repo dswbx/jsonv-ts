@@ -17,6 +17,7 @@ export type BaseJSONSchema = {
    $anchor?: string;
    $dynamicAnchor?: string;
    $dynamicRef?: string;
+   $vocabulary?: Record<string, boolean>;
    title?: string;
    description?: string;
    default?: any;

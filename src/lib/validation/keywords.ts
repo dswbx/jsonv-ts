@@ -310,12 +310,18 @@ export const multipleOf = (
    }
 
    // Division first, then check "integer-ness" with a relative epsilon.
-   // Machine-epsilon scaled to the magnitude of the quotient
    const quotient = value / multipleOf;
-   const EPS = Number.EPSILON * Math.max(1, Math.abs(quotient));
 
    // Valid when quotient is within EPS of the nearest integer
-   if (Math.abs(quotient - Math.round(quotient)) <= EPS) return valid();
+   if (Number.isFinite(quotient) && isNearlyInteger(quotient)) return valid();
+
+   if (
+      !Number.isFinite(quotient) &&
+      Number.isInteger(value) &&
+      isNearlyInteger(1 / multipleOf)
+   ) {
+      return valid();
+   }
 
    return error(
       opts,
@@ -324,6 +330,11 @@ export const multipleOf = (
       value
    );
 };
+
+function isNearlyInteger(value: number): boolean {
+   const EPS = Number.EPSILON * Math.max(1, Math.abs(value));
+   return Math.abs(value - Math.round(value)) <= EPS;
+}
 
 export const maximum = (
    { maximum = 0 }: { maximum?: number },

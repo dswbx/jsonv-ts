@@ -67,11 +67,16 @@ export interface IObjectOptions extends ISchemaOptions {
    additionalProperties?: Schema | false;
    unevaluatedProperties?: Schema | false;
    dependencies?: Record<string, Schema | string[]>;
-   required?: string[];
+   dependentRequired?: Record<string, string[]>;
+   dependentSchemas?: Record<string, Schema>;
    minProperties?: number;
    maxProperties?: number;
    propertyNames?: Schema;
 }
+
+type IRawObjectOptions = IObjectOptions & {
+   required?: string[];
+};
 
 // @todo: add base object type
 // @todo: add generic coerce and template that also works with additionalProperties, etc.
@@ -93,7 +98,7 @@ export class ObjectSchema<
    required: string[] | undefined;
    //additionalProperties: Schema | undefined;
 
-   constructor(properties: P, o?: O) {
+   constructor(properties: P, o?: O & IRawObjectOptions) {
       let required: string[] | undefined = Array.isArray(o?.required)
          ? [...o.required]
          : [];
