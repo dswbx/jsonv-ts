@@ -1,0 +1,103 @@
+name: Preview Package
+
+on:
+   pull_request:
+      types: [labeled]
+      paths:
+         - "src/**"
+         - "package.json"
+         - "bun.lock"
+         - "bunfig.toml"
+         - ".github/workflows/preview.yml"
+
+env:
+   PKG_PR_NEW_VERSION: 0.0.71
+
+permissions:
+   contents: read
+   pull-requests: write
+
+concurrency:
+   group: preview-${{ github.event.pull_request.number || github.ref }}
+   cancel-in-progress: true
+
+jobs:
+   validate:
+      name: Validate preview package
+      if: ${{ github.event.label.name == 'publish-preview' }}
+      runs-on: ubuntu-latest
+      steps:
+         - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+           with:
+              fetch-depth: 0
+
+         - name: Setup Node.js
+           uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+           with:
+              node-version: "24"
+
+         - name: Setup Bun
+           uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+           with:
+              bun-version: "1.2.19"
+
+         - name: Install dependencies
+           run: bun install --frozen-lockfile
+
+         - name: Check types
+           run: bun run types
+
+         - name: Run unit tests
+           run: bun run test:unit
+
+         - name: Build package
+           run: bun run build
+
+         - name: Verify packed manifest
+           run: |
+              set -euo pipefail
+              PACK_DIR="${RUNNER_TEMP}/preview-pack"
+              rm -rf "$PACK_DIR"
+              mkdir -p "$PACK_DIR"
+
+              bun pm pack --destination "$PACK_DIR" --quiet
+              TARBALL="$(find "$PACK_DIR" -maxdepth 1 -name '*.tgz' -print -quit)"
+              if [[ -z "$TARBALL" ]]; then
+                 echo "bun pm pack did not create a package tarball."
+                 exit 1
+              fi
+
+              MANIFEST="${RUNNER_TEMP}/preview-package.json"
+              tar -xOf "$TARBALL" package/package.json > "$MANIFEST"
+              if grep -E 'catalog:|workspace:' "$MANIFEST"; then
+                 echo "Packed package.json still contains unresolved workspace protocol ranges."
+                 exit 1
+              fi
+
+   preview:
+      name: Publish PR preview package
+      needs: validate
+      runs-on: ubuntu-latest
+      steps:
+         - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
+           with:
+              fetch-depth: 0
+
+         - name: Setup Node.js
+           uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+           with:
+              node-version: "24"
+
+         - name: Setup Bun
+           uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
+           with:
+              bun-version: "1.2.19"
+
+         - name: Install dependencies
+           run: bun install --frozen-lockfile
+
+         - name: Build package
+           run: bun run build
+
+         - name: Publish preview
+           run: bunx "pkg-pr-new@${PKG_PR_NEW_VERSION}" publish --bun --compact "."
