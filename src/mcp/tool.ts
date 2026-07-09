@@ -1,6 +1,7 @@
 import * as s from "jsonv-ts";
 import { McpError } from "./error";
 import type { MaybePromise } from "./utils";
+import { invariant } from "jsonv-ts";
 
 const annotationSchema = s
    .object({
@@ -106,6 +107,8 @@ export class Tool<
       raw?: unknown
    ): Promise<ToolResponse> {
       if (this.config?.inputSchema) {
+         invariant(params, "'params' is required");
+
          const result = this.config.inputSchema.validate(params);
          if (!result.valid) {
             throw new McpError(

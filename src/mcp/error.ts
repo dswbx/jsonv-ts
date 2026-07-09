@@ -74,6 +74,12 @@ export class McpError extends Error {
       };
    }
 
+   toResponse() {
+      return new Response(JSON.stringify(this.toJSON()), {
+         status: this.statusCode,
+      });
+   }
+
    override toString() {
       return `MCP Error (${codes[this.code].code} ${this.code}): ${
          this.message
