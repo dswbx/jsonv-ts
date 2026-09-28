@@ -33,6 +33,7 @@
    - [OpenAPI generation](#openapi-generation)
 - [MCP](#mcp)
    - [Hono MCP Middleware](#hono-mcp-middleware)
+   - [Hono Routes as MCP Tools](#hono-routes-as-mcp-tools)
    - [MCP Client](#mcp-client)
 - [Validation](#validation)
    - [Integrated Validator](#integrated-validator)
@@ -744,6 +745,40 @@ const app = new Hono().use(
       },
    })
 );
+```
+
+### Hono Routes as MCP Tools
+
+You can expose selected Hono routes as MCP tools by adding the `mcpTool` middleware to each route. Input schemas come from the route's `validator` middleware. Use `withMcp` to create the MCP server and attach its endpoint to the app:
+
+```ts
+import { Hono } from "hono";
+import { s } from "jsonv-ts";
+import { validator } from "jsonv-ts/hono";
+import { mcpTool, withMcp } from "jsonv-ts/mcp";
+
+const app = new Hono().get(
+   "/lookup",
+   mcpTool("lookup"),
+   validator("query", s.object({ name: s.string() })),
+   (c) => c.json({ greeting: `Hello, ${c.req.valid("query").name}!` })
+);
+
+const appWithMcp = withMcp(app, {
+   endpoint: { path: "/mcp" },
+});
+```
+
+Only routes marked with `mcpTool` are exposed. When an MCP client calls `lookup`, the server validates its arguments using the route schema and invokes the Hono route handler. The `/mcp` path keeps the MCP endpoint separate from the app's regular routes.
+
+To override the schema inferred from a route's validators, pass target schemas in the `mcpTool` config. For example, this sets the MCP tool's query input schema explicitly; keep it aligned with the route's own validation:
+
+```ts
+mcpTool("lookup", {
+   inputSchema: {
+      query: s.object({ name: s.string() }),
+   },
+});
 ```
 
 ### MCP Client
